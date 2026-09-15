@@ -56,7 +56,6 @@ create table if not exists public.maintenance_subscriptions (
   included_change_minutes   integer not null default 0 check (included_change_minutes >= 0),
   included_support_minutes  integer not null default 0 check (included_support_minutes >= 0),
   auto_renew                boolean not null default true,
-  internal_notes            text,
   created_by                uuid references public.users (id) on delete set null,
   created_at                timestamptz not null default now(),
   updated_at                timestamptz not null default now(),

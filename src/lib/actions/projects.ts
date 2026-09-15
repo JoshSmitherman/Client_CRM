@@ -7,6 +7,7 @@ import { recordActivity } from '@/lib/activity';
 import { AuditAction, recordAudit } from '@/lib/audit';
 import { requireAgency } from '@/lib/auth';
 import { ONBOARDING_SECTIONS } from '@/lib/onboarding-template';
+import { setInternalNote } from '@/lib/internal-notes';
 import { createClient } from '@/lib/supabase/server';
 import { formObject } from '@/lib/validation/common';
 import { projectSchema, projectSettingsSchema } from '@/lib/validation/projects';
@@ -49,7 +50,6 @@ export async function createProjectAction(
       stage_id: stageId,
       target_start_date: input.targetStartDate ?? null,
       target_launch_date: input.targetLaunchDate ?? null,
-      internal_notes: input.internalNotes ?? null,
       created_by: session.userId,
     })
     .select('id, name, reference, client_id')
@@ -58,6 +58,15 @@ export async function createProjectAction(
   if (error || !project) {
     return errorState(`Could not create the project: ${error?.message ?? 'unknown error'}`);
   }
+
+  await setInternalNote({
+    entityType: 'project',
+    entityId: project.id,
+    projectId: project.id,
+    clientId: project.client_id,
+    body: input.internalNotes,
+    userId: session.userId,
+  });
 
   // The creator is a member so they retain access even if they are not a
   // manager; and every project gets a plan row so the Planning tab is editable
@@ -144,11 +153,19 @@ export async function updateProjectSettingsAction(
       target_start_date: input.targetStartDate ?? null,
       target_launch_date: input.targetLaunchDate ?? null,
       actual_launch_date: input.actualLaunchDate ?? null,
-      internal_notes: input.internalNotes ?? null,
     })
     .eq('id', projectId);
 
   if (error) return errorState(`Could not save the project: ${error.message}`);
+
+  await setInternalNote({
+    entityType: 'project',
+    entityId: projectId,
+    projectId,
+    clientId: before.client_id,
+    body: input.internalNotes,
+    userId: session.userId,
+  });
 
   // A stage change is the single most meaningful project event, so it gets its
   // own audit action and a client-visible activity entry.

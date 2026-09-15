@@ -18,9 +18,12 @@ import type { Tables } from '@/lib/supabase/database.types';
 export function TriagePanel({
   request,
   staff,
+  internalNote,
 }: {
   request: Tables<'change_requests'>;
   staff: { id: string; full_name: string }[];
+  /** Required so a forgotten call site cannot silently blank the note. */
+  internalNote: string;
 }) {
   const action = triageChangeRequestAction.bind(null, request.id);
   const [state, formAction] = useActionState(action, idleState);
@@ -128,7 +131,7 @@ export function TriagePanel({
                 id={id}
                 name="internalNotes"
                 rows={3}
-                defaultValue={request.internal_notes ?? ''}
+                defaultValue={internalNote}
                 aria-describedby={describedBy}
               />
             )}

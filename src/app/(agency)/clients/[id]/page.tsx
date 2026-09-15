@@ -36,6 +36,7 @@ import {
 import { formatCurrency, formatDate } from '@/lib/format';
 import { requireAgency } from '@/lib/auth';
 import { ROLE_LABELS } from '@/lib/permissions';
+import { getInternalNote } from '@/lib/internal-notes';
 import { getClient, getClientOverview } from '@/lib/queries/clients';
 
 export async function generateMetadata({
@@ -55,7 +56,10 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
   const client = await getClient(id);
   if (!client) notFound();
 
-  const overview = await getClientOverview(id);
+  const [overview, internalNote] = await Promise.all([
+    getClientOverview(id),
+    getInternalNote('client', id),
+  ]);
   const manager = client.account_manager as unknown as { full_name: string; email: string } | null;
 
   const addressParts = [
@@ -406,12 +410,12 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
             )}
           </Card>
 
-          {client.internal_notes ? (
+          {internalNote ? (
             <Card>
               <CardHeader title="Internal notes" description="Never visible to the client" />
               <CardBody>
                 <p className="text-[13px] whitespace-pre-wrap text-[var(--text-secondary)]">
-                  {client.internal_notes}
+                  {internalNote}
                 </p>
               </CardBody>
             </Card>

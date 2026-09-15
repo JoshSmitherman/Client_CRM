@@ -10,7 +10,6 @@ create table if not exists public.project_plans (
   objectives                text,
   client_responsibilities   text,
   agency_responsibilities   text,
-  notes                     text,
   updated_by                uuid references public.users (id) on delete set null,
   created_at                timestamptz not null default now(),
   updated_at                timestamptz not null default now()

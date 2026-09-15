@@ -5,6 +5,7 @@ import { ClientForm } from '@/components/clients/client-form';
 import { PageHeader } from '@/components/ui/page-header';
 import { updateClientAction } from '@/lib/actions/clients';
 import { requireAgency } from '@/lib/auth';
+import { getInternalNote } from '@/lib/internal-notes';
 import { getAccountManagers, getClient } from '@/lib/queries/clients';
 
 export const metadata: Metadata = { title: 'Edit client' };
@@ -13,7 +14,11 @@ export default async function EditClientPage({ params }: { params: Promise<{ id:
   await requireAgency();
   const { id } = await params;
 
-  const [client, accountManagers] = await Promise.all([getClient(id), getAccountManagers()]);
+  const [client, accountManagers, internalNote] = await Promise.all([
+    getClient(id),
+    getAccountManagers(),
+    getInternalNote('client', id),
+  ]);
   if (!client) notFound();
 
   // Bind the id server-side so the client component cannot target another record.
@@ -32,6 +37,7 @@ export default async function EditClientPage({ params }: { params: Promise<{ id:
       <ClientForm
         action={action}
         client={client}
+        internalNote={internalNote}
         accountManagers={accountManagers}
         submitLabel="Save changes"
         cancelHref={`/clients/${id}`}

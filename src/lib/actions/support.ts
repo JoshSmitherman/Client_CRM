@@ -8,6 +8,7 @@ import { AuditAction, recordAudit } from '@/lib/audit';
 import { getCurrentClientId, requireUser } from '@/lib/auth';
 import { SUPPORT_STATUS_LABELS } from '@/lib/constants';
 import { clientNotificationTargets, notify, projectNotificationTargets } from '@/lib/notifications';
+import { setInternalNote } from '@/lib/internal-notes';
 import { isAgency } from '@/lib/permissions';
 import { createClient } from '@/lib/supabase/server';
 import { formObject } from '@/lib/validation/common';
@@ -69,7 +70,6 @@ export async function createSupportRequestAction(
       submitted_by: session.userId,
       // Agency triage confirms cover; a client's ticket starts unassessed, and
       // the column guard stops them setting it.
-      ...(agency ? {} : {}),
       ...(agency && subscription ? { covered_by_plan: true } : {}),
       response_due_at: agency ? responseDue : null,
     })
@@ -157,7 +157,6 @@ export async function triageSupportRequestAction(
         input.coveredByPlan === 'yes' ? true : input.coveredByPlan === 'no' ? false : null,
       coverage_note: input.coverageNote ?? null,
       resolution_summary: input.resolutionSummary ?? null,
-      internal_notes: input.internalNotes ?? null,
       time_spent_minutes: input.timeSpentMinutes,
       // Stamped once, the first time the agency touches the ticket.
       first_response_at: before.first_response_at ?? now,
@@ -167,6 +166,15 @@ export async function triageSupportRequestAction(
     .eq('id', requestId);
 
   if (error) return errorState(`Could not update the ticket: ${error.message}`);
+
+  await setInternalNote({
+    entityType: 'support_request',
+    entityId: requestId,
+    projectId: before.project_id,
+    clientId: before.client_id,
+    body: input.internalNotes,
+    userId: session.userId,
+  });
 
   // Support time counts against the plan's support allowance, not the change
   // allowance, and only the newly added minutes are recorded.

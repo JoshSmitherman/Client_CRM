@@ -466,5 +466,89 @@ begin
   raise notice '  pass: an invitation overrides the domain default';
 end $$;
 
+-- --------------------------------------------------------------------------
+-- 11. Agency-only text is unreachable, not merely unrendered
+-- --------------------------------------------------------------------------
+-- RLS restricts rows, not columns, so anything agency-only that sits on a
+-- client-readable row is readable straight from the API. These assertions
+-- prove it is not on those rows at all.
+\echo '--- internal notes ---'
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+
+insert into public.internal_notes (entity_type, entity_id, project_id, client_id, body)
+values
+  ('change_request', 'f1111111-0000-4000-8000-000000000001',
+   'd1111111-0000-4000-8000-000000000001', 'c1111111-0000-4000-8000-000000000001',
+   'PRIVATE: quote them double'),
+  ('client', 'c1111111-0000-4000-8000-000000000001', null,
+   'c1111111-0000-4000-8000-000000000001', 'PRIVATE: they always pay late');
+
+insert into public.project_risks (project_id, title, description)
+values ('d1111111-0000-4000-8000-000000000001', 'Client may not pay', 'Slow payer historically.');
+
+set role authenticated;
+select set_config('request.jwt.claim.sub', '33333333-3333-4333-8333-333333333333', false);
+
+select pg_temp.assert(
+  (select count(*) from public.internal_notes) = 0,
+  'client cannot read any internal note, on their own records or otherwise');
+
+select pg_temp.assert(
+  (select count(*) from public.project_risks) = 0,
+  'client cannot read the risk register for their own project');
+
+select pg_temp.assert(
+  (select count(*) from public.invitations) = 0,
+  'client cannot read invitations or their tokens');
+
+-- Writing one is refused too, so a client cannot plant text an agency user
+-- would later read as its own note.
+do $$
+begin
+  insert into public.internal_notes (entity_type, entity_id, client_id, body)
+  values ('client', 'c1111111-0000-4000-8000-000000000001',
+          'c1111111-0000-4000-8000-000000000001', 'injected');
+  raise exception 'RLS ASSERTION FAILED: client wrote an internal note';
+exception
+  when insufficient_privilege then raise notice '  pass: client cannot write an internal note';
+end $$;
+
+-- The agency can read and write them normally.
+select set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', false);
+
+select pg_temp.assert(
+  (select count(*) from public.internal_notes) = 2,
+  'agency admin reads internal notes');
+
+select pg_temp.assert(
+  (select count(*) from public.project_risks) = 1,
+  'agency admin reads the risk register');
+
+-- A handover still being prepared is not visible to the client.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+insert into public.handovers (project_id, status) values
+  ('d1111111-0000-4000-8000-000000000001', 'draft');
+
+set role authenticated;
+select set_config('request.jwt.claim.sub', '33333333-3333-4333-8333-333333333333', false);
+
+select pg_temp.assert(
+  (select count(*) from public.handovers) = 0,
+  'client cannot see a handover that is still in draft');
+
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+update public.handovers set status = 'delivered'
+where project_id = 'd1111111-0000-4000-8000-000000000001';
+
+set role authenticated;
+select set_config('request.jwt.claim.sub', '33333333-3333-4333-8333-333333333333', false);
+
+select pg_temp.assert(
+  (select count(*) from public.handovers) = 1,
+  'client can see the handover once it is delivered');
+
 reset role;
 \echo 'ALL RLS ASSERTIONS PASSED'

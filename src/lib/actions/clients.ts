@@ -7,6 +7,7 @@ import { recordActivity } from '@/lib/activity';
 import { AuditAction, recordAudit } from '@/lib/audit';
 import { requireAgency } from '@/lib/auth';
 import { isAgencyManager } from '@/lib/permissions';
+import { setInternalNote } from '@/lib/internal-notes';
 import { createClient } from '@/lib/supabase/server';
 import { clientSchema } from '@/lib/validation/clients';
 import { formObject } from '@/lib/validation/common';
@@ -82,7 +83,6 @@ export async function createClientAction(
       description: input.description ?? null,
       is_existing_client: input.isExistingClient,
       account_manager_id: input.accountManagerId ?? null,
-      internal_notes: input.internalNotes ?? null,
       created_by: session.userId,
     })
     .select('id, company_name')
@@ -93,6 +93,15 @@ export async function createClientAction(
     await supabase.from('organisations').delete().eq('id', organisation.id);
     return errorState(`Could not create the client: ${clientError?.message ?? 'unknown error'}`);
   }
+
+  // Agency-only text lives in its own table, which clients cannot read at all.
+  await setInternalNote({
+    entityType: 'client',
+    entityId: client.id,
+    clientId: client.id,
+    body: input.internalNotes,
+    userId: session.userId,
+  });
 
   await Promise.all([
     recordAudit({
@@ -159,11 +168,18 @@ export async function updateClientAction(
       description: input.description ?? null,
       is_existing_client: input.isExistingClient,
       account_manager_id: input.accountManagerId ?? null,
-      internal_notes: input.internalNotes ?? null,
     })
     .eq('id', clientId);
 
   if (error) return errorState(`Could not save the client: ${error.message}`);
+
+  await setInternalNote({
+    entityType: 'client',
+    entityId: clientId,
+    clientId,
+    body: input.internalNotes,
+    userId: session.userId,
+  });
 
   // Keep the organisation name aligned so the portal header matches.
   if (before.company_name !== input.companyName) {

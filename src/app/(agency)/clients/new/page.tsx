@@ -25,6 +25,7 @@ export default async function NewClientPage() {
       />
       <ClientForm
         action={createClientAction}
+        internalNote=""
         accountManagers={accountManagers}
         submitLabel="Create client"
         cancelHref="/clients"

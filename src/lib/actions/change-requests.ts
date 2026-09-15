@@ -8,6 +8,7 @@ import { AuditAction, recordAudit } from '@/lib/audit';
 import { requireUser } from '@/lib/auth';
 import { CHANGE_STATUS_LABELS } from '@/lib/constants';
 import { clientNotificationTargets, notify, projectNotificationTargets } from '@/lib/notifications';
+import { setInternalNote } from '@/lib/internal-notes';
 import { isAgency } from '@/lib/permissions';
 import { createClient } from '@/lib/supabase/server';
 import type { Enums } from '@/lib/supabase/database.types';
@@ -187,7 +188,6 @@ export async function triageChangeRequestAction(
       assigned_to: input.assignedTo ?? null,
       priority: input.priority,
       estimated_completion_date: input.estimatedCompletionDate ?? null,
-      internal_notes: input.internalNotes ?? null,
       client_notes: input.clientNotes ?? null,
       rejected_reason: input.rejectedReason ?? null,
       completed_at: input.status === 'completed' ? new Date().toISOString() : null,
@@ -195,6 +195,15 @@ export async function triageChangeRequestAction(
     .eq('id', requestId);
 
   if (error) return errorState(`Could not update the request: ${error.message}`);
+
+  await setInternalNote({
+    entityType: 'change_request',
+    entityId: requestId,
+    projectId: before.project_id,
+    clientId: before.client_id,
+    body: input.internalNotes,
+    userId: session.userId,
+  });
 
   if (before.status !== input.status) {
     await Promise.all([

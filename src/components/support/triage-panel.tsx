@@ -16,10 +16,13 @@ export function SupportTriagePanel({
   ticket,
   staff,
   hasSubscription,
+  internalNote,
 }: {
   ticket: Tables<'support_requests'>;
   staff: { id: string; full_name: string }[];
   hasSubscription: boolean;
+  /** Required so a forgotten call site cannot silently blank the note. */
+  internalNote: string;
 }) {
   const action = triageSupportRequestAction.bind(null, ticket.id);
   const [state, formAction] = useActionState(action, idleState);
@@ -155,7 +158,7 @@ export function SupportTriagePanel({
                 id={id}
                 name="internalNotes"
                 rows={3}
-                defaultValue={ticket.internal_notes ?? ''}
+                defaultValue={internalNote}
                 aria-describedby={describedBy}
               />
             )}

@@ -23,9 +23,12 @@ export function SubscriptionForm({
   plans,
   defaultClientId,
   defaultProjectId,
+  internalNote,
   onDone,
 }: {
   subscription?: Tables<'maintenance_subscriptions'> | null;
+  /** Required so a forgotten call site cannot silently blank the note. */
+  internalNote: string;
   clients: { id: string; company_name: string }[];
   projects: { id: string; name: string }[];
   plans: Tables<'maintenance_plans'>[];
@@ -210,7 +213,7 @@ export function SubscriptionForm({
                 id={id}
                 name="internalNotes"
                 rows={2}
-                defaultValue={subscription?.internal_notes ?? ''}
+                defaultValue={internalNote}
               />
             )}
           </Field>

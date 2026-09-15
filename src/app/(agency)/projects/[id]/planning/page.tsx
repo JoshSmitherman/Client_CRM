@@ -5,6 +5,7 @@ import { MilestoneList, type MilestoneRow } from '@/components/planning/mileston
 import { PlanEditor } from '@/components/planning/plan-editor';
 import { RiskRegister, type RiskRow } from '@/components/planning/risk-register';
 import { requireAgency } from '@/lib/auth';
+import { getInternalNote } from '@/lib/internal-notes';
 import { getAgencyStaff, getProject } from '@/lib/queries/projects';
 import { createClient } from '@/lib/supabase/server';
 
@@ -45,7 +46,11 @@ export default async function ProjectPlanningPage({
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <div className="space-y-4">
-        <PlanEditor projectId={id} plan={plan} />
+        <PlanEditor
+          projectId={id}
+          plan={plan}
+          internalNote={plan ? await getInternalNote('project_plan', plan.id) : ''}
+        />
       </div>
 
       <div className="space-y-4">

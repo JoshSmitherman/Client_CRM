@@ -351,7 +351,6 @@ export interface Database {
           assigned_to: string | null;
           submitted_by: string | null;
           submitted_at: string;
-          internal_notes: string | null;
           client_notes: string | null;
           logged_minutes: number;
           completed_at: string | null;
@@ -380,7 +379,6 @@ export interface Database {
           assigned_to?: string | null;
           submitted_by?: string | null;
           submitted_at?: string;
-          internal_notes?: string | null;
           client_notes?: string | null;
           logged_minutes?: number;
           completed_at?: string | null;
@@ -409,7 +407,6 @@ export interface Database {
           assigned_to?: string | null;
           submitted_by?: string | null;
           submitted_at?: string;
-          internal_notes?: string | null;
           client_notes?: string | null;
           logged_minutes?: number;
           completed_at?: string | null;
@@ -565,7 +562,6 @@ export interface Database {
           description: string | null;
           is_existing_client: boolean;
           account_manager_id: string | null;
-          internal_notes: string | null;
           is_active: boolean;
           created_by: string | null;
           created_at: string;
@@ -592,7 +588,6 @@ export interface Database {
           description?: string | null;
           is_existing_client?: boolean;
           account_manager_id?: string | null;
-          internal_notes?: string | null;
           is_active?: boolean;
           created_by?: string | null;
           created_at?: string;
@@ -619,7 +614,6 @@ export interface Database {
           description?: string | null;
           is_existing_client?: boolean;
           account_manager_id?: string | null;
-          internal_notes?: string | null;
           is_active?: boolean;
           created_by?: string | null;
           created_at?: string;
@@ -1270,6 +1264,64 @@ export interface Database {
           },
         ];
       };
+      internal_notes: {
+        Row: {
+          id: string;
+          entity_type: string;
+          entity_id: string;
+          project_id: string | null;
+          client_id: string | null;
+          body: string;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          entity_type: string;
+          entity_id: string;
+          project_id?: string | null;
+          client_id?: string | null;
+          body?: string;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          entity_type?: string;
+          entity_id?: string;
+          project_id?: string | null;
+          client_id?: string | null;
+          body?: string;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'internal_notes_client_id_fkey';
+            columns: ['client_id'];
+            isOneToOne: false;
+            referencedRelation: 'clients';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'internal_notes_project_id_fkey';
+            columns: ['project_id'];
+            isOneToOne: false;
+            referencedRelation: 'projects';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'internal_notes_updated_by_fkey';
+            columns: ['updated_by'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       invitations: {
         Row: {
           id: string;
@@ -1629,7 +1681,6 @@ export interface Database {
           included_change_minutes: number;
           included_support_minutes: number;
           auto_renew: boolean;
-          internal_notes: string | null;
           created_by: string | null;
           created_at: string;
           updated_at: string;
@@ -1651,7 +1702,6 @@ export interface Database {
           included_change_minutes?: number;
           included_support_minutes?: number;
           auto_renew?: boolean;
-          internal_notes?: string | null;
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -1673,7 +1723,6 @@ export interface Database {
           included_change_minutes?: number;
           included_support_minutes?: number;
           auto_renew?: boolean;
-          internal_notes?: string | null;
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -2345,7 +2394,6 @@ export interface Database {
           objectives: string | null;
           client_responsibilities: string | null;
           agency_responsibilities: string | null;
-          notes: string | null;
           updated_by: string | null;
           created_at: string;
           updated_at: string;
@@ -2357,7 +2405,6 @@ export interface Database {
           objectives?: string | null;
           client_responsibilities?: string | null;
           agency_responsibilities?: string | null;
-          notes?: string | null;
           updated_by?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -2369,7 +2416,6 @@ export interface Database {
           objectives?: string | null;
           client_responsibilities?: string | null;
           agency_responsibilities?: string | null;
-          notes?: string | null;
           updated_by?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -2472,7 +2518,6 @@ export interface Database {
           target_launch_date: string | null;
           actual_launch_date: string | null;
           completion_percentage: number;
-          internal_notes: string | null;
           created_by: string | null;
           created_at: string;
           updated_at: string;
@@ -2492,7 +2537,6 @@ export interface Database {
           target_launch_date?: string | null;
           actual_launch_date?: string | null;
           completion_percentage?: number;
-          internal_notes?: string | null;
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -2512,7 +2556,6 @@ export interface Database {
           target_launch_date?: string | null;
           actual_launch_date?: string | null;
           completion_percentage?: number;
-          internal_notes?: string | null;
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -2662,7 +2705,6 @@ export interface Database {
           resolved_at: string | null;
           resolution_summary: string | null;
           time_spent_minutes: number;
-          internal_notes: string | null;
           created_at: string;
           updated_at: string;
           deleted_at: string | null;
@@ -2689,7 +2731,6 @@ export interface Database {
           resolved_at?: string | null;
           resolution_summary?: string | null;
           time_spent_minutes?: number;
-          internal_notes?: string | null;
           created_at?: string;
           updated_at?: string;
           deleted_at?: string | null;
@@ -2716,7 +2757,6 @@ export interface Database {
           resolved_at?: string | null;
           resolution_summary?: string | null;
           time_spent_minutes?: number;
-          internal_notes?: string | null;
           created_at?: string;
           updated_at?: string;
           deleted_at?: string | null;

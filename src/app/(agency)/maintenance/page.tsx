@@ -17,6 +17,7 @@ import { formatCurrency, formatDate } from '@/lib/format';
 import { requireAgency } from '@/lib/auth';
 import { isAgencyAdmin } from '@/lib/permissions';
 import { getClients } from '@/lib/queries/clients';
+import { getInternalNotes } from '@/lib/internal-notes';
 import {
   getAllowance,
   getPlanRequests,
@@ -64,6 +65,12 @@ export default async function MaintenancePage({
 
   const pendingRequests = requests.filter((r) => r.status === 'pending').length;
 
+  // One query for every note on the page rather than one per subscription.
+  const notes = await getInternalNotes(
+    'maintenance_subscription',
+    subscriptions.map((s) => s.id),
+  );
+
   return (
     <>
       <PageHeader
@@ -75,6 +82,7 @@ export default async function MaintenancePage({
           ) : active === 'subscriptions' ? (
             <SubscriptionFormToggle
               label="New subscription"
+              internalNote=""
               clients={clients.map((c) => ({ id: c.id, company_name: c.company_name }))}
               projects={projects ?? []}
               plans={plans}
@@ -149,6 +157,7 @@ export default async function MaintenancePage({
                         <SubscriptionFormToggle
                           label="Edit"
                           subscription={sub}
+                          internalNote={notes.get(sub.id) ?? ''}
                           clients={clients.map((c) => ({ id: c.id, company_name: c.company_name }))}
                           projects={projects ?? []}
                           plans={plans}

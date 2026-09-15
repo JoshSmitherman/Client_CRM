@@ -521,7 +521,6 @@ create policy change_requests_client_insert on public.change_requests
         and estimated_hours is null
         and estimated_cost is null
         and assigned_to is null
-        and internal_notes is null
       )
     )
   );
@@ -614,7 +613,6 @@ create policy support_requests_insert on public.support_requests
         client_id = public.current_client_id()
         and status = 'open'
         and assigned_to is null
-        and internal_notes is null
         and covered_by_plan is null
       )
     )

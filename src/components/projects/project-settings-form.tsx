@@ -13,9 +13,12 @@ import type { ProjectDetail } from '@/lib/queries/projects';
 export function ProjectSettingsForm({
   project,
   stages,
+  internalNote,
 }: {
   project: ProjectDetail;
   stages: { id: string; label: string }[];
+  /** Required so a forgotten call site cannot silently blank the note. */
+  internalNote: string;
 }) {
   const action = updateProjectSettingsAction.bind(null, project.id);
   const [state, formAction] = useActionState(action, idleState);
@@ -130,7 +133,7 @@ export function ProjectSettingsForm({
                 id={id}
                 name="internalNotes"
                 rows={4}
-                defaultValue={project.internal_notes ?? ''}
+                defaultValue={internalNote}
                 aria-describedby={describedBy}
               />
             )}

@@ -57,7 +57,6 @@ begin
      or new.estimated_cost is distinct from old.estimated_cost
      or new.estimated_completion_date is distinct from old.estimated_completion_date
      or new.assigned_to is distinct from old.assigned_to
-     or new.internal_notes is distinct from old.internal_notes
      or new.client_notes is distinct from old.client_notes
      or new.logged_minutes is distinct from old.logged_minutes
      or new.subscription_id is distinct from old.subscription_id
@@ -92,7 +91,6 @@ begin
   if new.covered_by_plan is distinct from old.covered_by_plan
      or new.coverage_note is distinct from old.coverage_note
      or new.assigned_to is distinct from old.assigned_to
-     or new.internal_notes is distinct from old.internal_notes
      or new.time_spent_minutes is distinct from old.time_spent_minutes
      or new.response_due_at is distinct from old.response_due_at
      or new.first_response_at is distinct from old.first_response_at

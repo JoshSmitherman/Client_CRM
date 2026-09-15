@@ -27,8 +27,7 @@ create table if not exists public.change_requests (
   assigned_to               uuid references public.users (id) on delete set null,
   submitted_by              uuid references public.users (id) on delete set null,
   submitted_at              timestamptz not null default now(),
-  -- Two distinct note fields: internal_notes is never sent to the client.
-  internal_notes            text,
+  -- Agency-only notes live in public.internal_notes (migration 0015).
   client_notes              text,
   -- Effort actually spent, used to draw down the maintenance allowance.
   logged_minutes            integer not null default 0 check (logged_minutes >= 0),
@@ -57,9 +56,6 @@ drop trigger if exists change_requests_set_updated_at on public.change_requests;
 create trigger change_requests_set_updated_at
   before update on public.change_requests
   for each row execute function public.set_updated_at();
-
-comment on column public.change_requests.internal_notes is
-  'Agency-only. Excluded from every client-facing query and hidden by RLS column discipline.';
 
 -- --- change_request_approvals ------------------------------------------------
 -- One row per quote round, so the full approval history is preserved.
@@ -129,7 +125,6 @@ create table if not exists public.support_requests (
   resolved_at         timestamptz,
   resolution_summary  text,
   time_spent_minutes  integer not null default 0 check (time_spent_minutes >= 0),
-  internal_notes      text,
   created_at          timestamptz not null default now(),
   updated_at          timestamptz not null default now(),
   deleted_at          timestamptz

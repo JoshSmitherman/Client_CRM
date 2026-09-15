@@ -12,9 +12,12 @@ import type { Tables } from '@/lib/supabase/database.types';
 export function PlanEditor({
   projectId,
   plan,
+  internalNote,
 }: {
   projectId: string;
   plan: Tables<'project_plans'> | null;
+  /** Required so a forgotten call site cannot silently blank the note. */
+  internalNote: string;
 }) {
   const action = savePlanAction.bind(null, projectId);
   const [state, formAction] = useActionState(action, idleState);
@@ -81,9 +84,15 @@ export function PlanEditor({
             </Field>
           </div>
 
-          <Field label="Notes">
-            {({ id }) => (
-              <Textarea id={id} name="notes" rows={3} defaultValue={plan?.notes ?? ''} />
+          <Field label="Internal notes" hint="Agency only — the client never sees this.">
+            {({ id, describedBy }) => (
+              <Textarea
+                id={id}
+                name="notes"
+                rows={3}
+                defaultValue={internalNote}
+                aria-describedby={describedBy}
+              />
             )}
           </Field>
         </CardBody>

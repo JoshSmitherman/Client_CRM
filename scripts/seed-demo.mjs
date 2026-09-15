@@ -345,16 +345,25 @@ async function main() {
           description: spec.description,
           is_existing_client: spec.existing,
           account_manager_id: spec.accountManager,
-          internal_notes:
-            spec.slug === 'northshore-plumbing'
-              ? 'Long-standing client. Dave prefers a phone call over email for anything urgent.'
-              : null,
           created_by: adminId,
         })
         .select('id')
         .single();
       fail(`creating the client ${spec.company}`, error);
       clientId = data.id;
+    }
+
+    // Agency-only text lives in its own table, which clients cannot read.
+    if (spec.slug === 'northshore-plumbing') {
+      await db.from('internal_notes').upsert(
+        {
+          entity_type: 'client',
+          entity_id: clientId,
+          client_id: clientId,
+          body: 'Long-standing client. Dave prefers a phone call over email for anything urgent.',
+        },
+        { onConflict: 'entity_type,entity_id' },
+      );
     }
 
     clients[spec.slug] = { id: clientId, orgId, spec };
@@ -550,10 +559,27 @@ async function seedProjectDetail({ projects, clients, adminId, pmId, devId, desi
         'Supply photography of the team and recent jobs. Approve designs within five working days. Provide access to the existing hosting account via the secure link.',
       agency_responsibilities:
         'Design, build, test and launch the site. Migrate existing content. Configure analytics and Search Console. Provide two hours of training.',
-      notes: 'Dave is the only decision maker. Avoid scheduling calls before 9am.',
       updated_by: pmId,
     })
     .eq('project_id', northshore.id);
+
+  const { data: northshorePlan } = await db
+    .from('project_plans')
+    .select('id')
+    .eq('project_id', northshore.id)
+    .maybeSingle();
+
+  if (northshorePlan) {
+    await db.from('internal_notes').upsert(
+      {
+        entity_type: 'project_plan',
+        entity_id: northshorePlan.id,
+        project_id: northshore.id,
+        body: 'Dave is the only decision maker. Avoid scheduling calls before 9am.',
+      },
+      { onConflict: 'entity_type,entity_id' },
+    );
+  }
 
   await seedDeliverables(northshore.id, [
     ['Responsive redesign of all templates', 'agency', daysFromNow(8)],
@@ -1097,11 +1123,23 @@ async function seedChangeRequest(spec) {
       submitted_at: new Date(`${spec.submittedAt}T09:00:00Z`).toISOString(),
       logged_minutes: spec.loggedMinutes ?? 0,
       client_notes: spec.clientNotes ?? null,
-      internal_notes: spec.internalNotes ?? null,
     })
     .select('id, reference')
     .single();
   fail(`creating the change request "${spec.title}"`, error);
+
+  if (spec.internalNotes) {
+    await db.from('internal_notes').upsert(
+      {
+        entity_type: 'change_request',
+        entity_id: data.id,
+        project_id: spec.projectId,
+        client_id: spec.clientId,
+        body: spec.internalNotes,
+      },
+      { onConflict: 'entity_type,entity_id' },
+    );
+  }
 
   await db.from('activity_logs').insert([
     {

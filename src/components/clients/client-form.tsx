@@ -13,6 +13,12 @@ import type { Tables } from '@/lib/supabase/database.types';
 export interface ClientFormProps {
   action: (prev: ActionState, formData: FormData) => Promise<ActionState>;
   client?: Tables<'clients'> | null;
+  /**
+   * Agency-only note, loaded separately because clients cannot read it.
+   * Required, not optional: a defaulted value would silently blank the
+   * existing note on the next save.
+   */
+  internalNote: string;
   accountManagers: { id: string; full_name: string }[];
   submitLabel: string;
   cancelHref: string;
@@ -21,6 +27,7 @@ export interface ClientFormProps {
 export function ClientForm({
   action,
   client,
+  internalNote,
   accountManagers,
   submitLabel,
   cancelHref,
@@ -182,7 +189,7 @@ export function ClientForm({
                 id={id}
                 name="internalNotes"
                 rows={4}
-                defaultValue={client?.internal_notes ?? ''}
+                defaultValue={internalNote}
                 placeholder="Context for the team. Never visible to the client."
               />
             )}

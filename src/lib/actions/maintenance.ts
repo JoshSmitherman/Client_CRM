@@ -7,6 +7,7 @@ import { AuditAction, recordAudit } from '@/lib/audit';
 import { getCurrentClientId, requireAgency, requireUser } from '@/lib/auth';
 import { PLAN_REQUEST_TYPE_LABELS } from '@/lib/constants';
 import { clientNotificationTargets, notify } from '@/lib/notifications';
+import { setInternalNote } from '@/lib/internal-notes';
 import { isAgency, isAgencyAdmin } from '@/lib/permissions';
 import { createClient } from '@/lib/supabase/server';
 import { slugify } from '@/lib/utils';
@@ -138,7 +139,6 @@ export async function saveSubscriptionAction(
     included_change_minutes: input.includedChangeMinutes,
     included_support_minutes: input.includedSupportMinutes,
     auto_renew: input.autoRenew,
-    internal_notes: input.internalNotes ?? null,
   };
 
   if (subscriptionId) {
@@ -154,6 +154,15 @@ export async function saveSubscriptionAction(
       .eq('id', subscriptionId);
 
     if (error) return errorState(`Could not save the subscription: ${error.message}`);
+
+    await setInternalNote({
+      entityType: 'maintenance_subscription',
+      entityId: subscriptionId,
+      projectId: input.projectId ?? null,
+      clientId: input.clientId,
+      body: input.internalNotes,
+      userId: session.userId,
+    });
 
     // Every subscription change is recorded permanently, so the history of what
     // a client was on and when is never lost to an edit.
@@ -194,6 +203,15 @@ export async function saveSubscriptionAction(
     if (error || !data) {
       return errorState(`Could not create the subscription: ${error?.message ?? 'unknown error'}`);
     }
+
+    await setInternalNote({
+      entityType: 'maintenance_subscription',
+      entityId: data.id,
+      projectId: input.projectId ?? null,
+      clientId: input.clientId,
+      body: input.internalNotes,
+      userId: session.userId,
+    });
 
     await Promise.all([
       supabase.from('maintenance_events').insert({

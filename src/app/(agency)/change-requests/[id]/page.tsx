@@ -30,6 +30,7 @@ import {
   getChangeRequestQuotes,
   getChangeRequestTimeline,
 } from '@/lib/queries/change-requests';
+import { getInternalNote } from '@/lib/internal-notes';
 import { getComments } from '@/lib/queries/comments';
 import { getAgencyStaff } from '@/lib/queries/projects';
 
@@ -54,12 +55,13 @@ export default async function ChangeRequestDetailPage({
   const request = await getChangeRequest(id);
   if (!request) notFound();
 
-  const [quotes, timeline, attachments, comments, staff] = await Promise.all([
+  const [quotes, timeline, attachments, comments, staff, internalNote] = await Promise.all([
     getChangeRequestQuotes(id),
     getChangeRequestTimeline(id),
     getChangeRequestAttachments(id),
     getComments({ entityType: 'change_request', entityId: id }),
     getAgencyStaff(),
+    getInternalNote('change_request', id),
   ]);
 
   const client = request.clients as unknown as { id: string; company_name: string };
@@ -159,7 +161,7 @@ export default async function ChangeRequestDetailPage({
             </Card>
           ) : null}
 
-          <TriagePanel request={request} staff={staff} />
+          <TriagePanel request={request} staff={staff} internalNote={internalNote} />
 
           <QuotePanel requestId={id} quotes={quotes as unknown as QuoteRow[]} />
 
@@ -220,7 +222,7 @@ export default async function ChangeRequestDetailPage({
             </CardBody>
           </Card>
 
-          {request.internal_notes ? (
+          {internalNote ? (
             <Card>
               <CardHeader
                 title={
@@ -232,7 +234,7 @@ export default async function ChangeRequestDetailPage({
               />
               <CardBody>
                 <p className="text-[13px] whitespace-pre-wrap text-[var(--text-secondary)]">
-                  {request.internal_notes}
+                  {internalNote}
                 </p>
               </CardBody>
             </Card>

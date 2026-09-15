@@ -23,7 +23,9 @@ create table if not exists public.clients (
   description           text,
   is_existing_client    boolean not null default false,
   account_manager_id    uuid references public.users (id) on delete set null,
-  internal_notes        text,
+  -- Agency-only notes live in public.internal_notes (migration 0015): Row
+  -- Level Security restricts rows, not columns, so anything agency-only on a
+  -- client-readable row is readable straight from the API.
   is_active             boolean not null default true,
   created_by            uuid references public.users (id) on delete set null,
   created_at            timestamptz not null default now(),
@@ -92,7 +94,6 @@ create table if not exists public.projects (
   target_launch_date      date,
   actual_launch_date      date,
   completion_percentage   integer not null default 0 check (completion_percentage between 0 and 100),
-  internal_notes          text,
   created_by              uuid references public.users (id) on delete set null,
   created_at              timestamptz not null default now(),
   updated_at              timestamptz not null default now(),

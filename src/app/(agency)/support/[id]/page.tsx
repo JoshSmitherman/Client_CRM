@@ -18,6 +18,7 @@ import {
 } from '@/lib/constants';
 import { formatDateTime, formatDuration, formatRelative } from '@/lib/format';
 import { requireAgency } from '@/lib/auth';
+import { getInternalNote } from '@/lib/internal-notes';
 import { getComments } from '@/lib/queries/comments';
 import { getAgencyStaff } from '@/lib/queries/projects';
 import { getSupportRequest } from '@/lib/queries/support';
@@ -46,9 +47,10 @@ export default async function SupportDetailPage({
 
   const supabase = await createClient();
 
-  const [comments, staff, { data: timeline }] = await Promise.all([
+  const [comments, staff, internalNote, { data: timeline }] = await Promise.all([
     getComments({ entityType: 'support_request', entityId: id }),
     getAgencyStaff(),
+    getInternalNote('support_request', id),
     supabase
       .from('activity_logs')
       .select('id, summary, created_at, actor_name, visibility')
@@ -122,6 +124,7 @@ export default async function SupportDetailPage({
             ticket={ticket}
             staff={staff}
             hasSubscription={Boolean(subscription)}
+            internalNote={internalNote}
           />
 
           <Card>
@@ -195,7 +198,7 @@ export default async function SupportDetailPage({
             </CardBody>
           </Card>
 
-          {ticket.internal_notes ? (
+          {internalNote ? (
             <Card>
               <CardHeader
                 title={
@@ -207,7 +210,7 @@ export default async function SupportDetailPage({
               />
               <CardBody>
                 <p className="text-[13px] whitespace-pre-wrap text-[var(--text-secondary)]">
-                  {ticket.internal_notes}
+                  {internalNote}
                 </p>
               </CardBody>
             </Card>

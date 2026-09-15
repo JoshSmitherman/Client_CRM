@@ -17,6 +17,7 @@ import {
 } from '@/lib/constants';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { requireAgency } from '@/lib/auth';
+import { getInternalNote } from '@/lib/internal-notes';
 import {
   getAllowance,
   getSubscription,
@@ -46,13 +47,14 @@ export default async function SubscriptionDetailPage({
   const subscription = await getSubscription(id);
   if (!subscription) notFound();
 
-  const [allowance, usage, events] = await Promise.all([
+  const [allowance, usage, events, internalNote] = await Promise.all([
     getAllowance(id, {
       change: subscription.included_change_minutes,
       support: subscription.included_support_minutes,
     }),
     getUsageHistory(id),
     getSubscriptionEvents(id),
+    getInternalNote('maintenance_subscription', id),
   ]);
 
   const client = subscription.clients as unknown as { id: string; company_name: string };
@@ -142,12 +144,12 @@ export default async function SubscriptionDetailPage({
             </Card>
           ) : null}
 
-          {subscription.internal_notes ? (
+          {internalNote ? (
             <Card>
               <CardHeader title="Internal notes" />
               <CardBody>
                 <p className="text-[13px] whitespace-pre-wrap text-[var(--text-secondary)]">
-                  {subscription.internal_notes}
+                  {internalNote}
                 </p>
               </CardBody>
             </Card>

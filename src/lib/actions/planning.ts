@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 
 import { recordActivity } from '@/lib/activity';
 import { requireAgency } from '@/lib/auth';
+import { setInternalNote } from '@/lib/internal-notes';
 import { createClient } from '@/lib/supabase/server';
 import { formObject } from '@/lib/validation/common';
 import {
@@ -38,13 +39,28 @@ export async function savePlanAction(
       objectives: input.objectives ?? null,
       client_responsibilities: input.clientResponsibilities ?? null,
       agency_responsibilities: input.agencyResponsibilities ?? null,
-      notes: input.notes ?? null,
       updated_by: session.userId,
     },
     { onConflict: 'project_id' },
   );
 
   if (error) return errorState(`Could not save the plan: ${error.message}`);
+
+  const { data: plan } = await supabase
+    .from('project_plans')
+    .select('id')
+    .eq('project_id', projectId)
+    .maybeSingle();
+
+  if (plan) {
+    await setInternalNote({
+      entityType: 'project_plan',
+      entityId: plan.id,
+      projectId,
+      body: input.notes,
+      userId: session.userId,
+    });
+  }
 
   revalidatePath(`/projects/${projectId}/planning`);
   return successState('Plan saved.');

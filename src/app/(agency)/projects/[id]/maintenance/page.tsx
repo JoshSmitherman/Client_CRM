@@ -15,6 +15,7 @@ import {
 } from '@/lib/constants';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { requireAgency } from '@/lib/auth';
+import { getInternalNote } from '@/lib/internal-notes';
 import { getClients } from '@/lib/queries/clients';
 import { getAllowance, getPlans, getUsageHistory } from '@/lib/queries/maintenance';
 import { getProject } from '@/lib/queries/projects';
@@ -55,6 +56,7 @@ export default async function ProjectMaintenancePage({
           action={
             <SubscriptionFormToggle
               label="Set up a subscription"
+              internalNote=""
               clients={clients.map((c) => ({ id: c.id, company_name: c.company_name }))}
               projects={[{ id, name: project.name }]}
               plans={plans}
@@ -111,6 +113,7 @@ export default async function ProjectMaintenancePage({
             <SubscriptionFormToggle
               label="Edit subscription"
               subscription={subscription}
+              internalNote={await getInternalNote('maintenance_subscription', subscription.id)}
               clients={clients.map((c) => ({ id: c.id, company_name: c.company_name }))}
               projects={[{ id, name: project.name }]}
               plans={plans}
