@@ -4,8 +4,9 @@ Everything you need to take this repository from a fresh clone to a running
 application on your own Supabase project.
 
 > **Prefer not to install anything?** [docs/GITHUB-SETUP.md](GITHUB-SETUP.md)
-> does the same job entirely in the browser: add three repository secrets, paste
-> one SQL file, run a workflow. Come back here if you want it running locally.
+> does the same job entirely in the browser, with a direct link for every click:
+> add three repository secrets, paste one SQL file, run a workflow. Come back
+> here if you want it running locally.
 
 Nothing here requires you to share credentials with anyone. Keys stay in your
 `.env.local`, which is git-ignored.
@@ -26,7 +27,7 @@ npm install
 
 ## 2. Create your Supabase project
 
-1. Go to <https://supabase.com/dashboard> and click **New project**.
+1. Go to <https://supabase.com/dashboard/new>.
 2. Choose an organisation, give the project a name (e.g. `agency-portal`),
    and set a **database password** — save it somewhere safe, you will need it
    in step 3.
@@ -44,8 +45,8 @@ dashboard URL after `/project/`, e.g. in
 
 ### The quick way — one SQL file
 
-Open `supabase/setup.sql`, copy the whole thing, and run it in the Supabase
-**SQL Editor**. That is the entire database: 40 tables, the permission
+Open [`supabase/setup.sql`](../supabase/setup.sql), copy the whole thing, and
+run it at <https://supabase.com/dashboard/project/_/sql/new>. That is the entire database: 40 tables, the permission
 functions, every Row Level Security policy, the guard triggers, the storage
 bucket and the reference data. It is safe to run more than once.
 
@@ -69,14 +70,15 @@ Security policies, the column guard triggers and the private storage bucket.
 `db push` applies the migrations but not the seed, so load the reference data
 too — agency settings, the 15 lifecycle stages, the 12-section onboarding
 template, three example maintenance tiers and the 16-item handover checklist.
-Paste `supabase/seed.sql` into the **SQL Editor** and run it. It is idempotent,
+Paste [`supabase/seed.sql`](../supabase/seed.sql) into the
+[SQL Editor](https://supabase.com/dashboard/project/_/sql/new) and run it. It is idempotent,
 so running it twice changes nothing.
 
 ---
 
 ## 4. Add your keys
 
-In the dashboard go to **Project Settings → API** and copy:
+Open <https://supabase.com/dashboard/project/_/settings/api> and copy:
 
 | Dashboard field | Goes into |
 |---|---|
@@ -109,7 +111,7 @@ Never give it a `NEXT_PUBLIC_` prefix and never commit it.
 
 ## 5. Configure authentication URLs
 
-**Authentication → URL Configuration**:
+Open <https://supabase.com/dashboard/project/_/auth/url-configuration>:
 
 - **Site URL**: `http://localhost:3000` (your production domain later)
 - **Redirect URLs**: add both
@@ -158,7 +160,7 @@ Open <http://localhost:3000>.
 
 ## Deploying to Vercel
 
-1. Push this repository to GitHub and import it at <https://vercel.com/new>.
+1. Import the repository at <https://vercel.com/new>.
 2. Add the same four environment variables in **Settings → Environment
    Variables**, with `NEXT_PUBLIC_SITE_URL` set to your Vercel domain.
 3. Add `https://<your-domain>/auth/callback` to the Supabase redirect URLs.

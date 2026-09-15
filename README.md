@@ -10,14 +10,19 @@ Next.js (App Router) · React · TypeScript · Tailwind CSS · Supabase (Postgre
 
 ## Getting started
 
-**No local install needed.** Two steps, both in the browser:
+**Nothing to install.** Six steps, all in your browser, about 15 minutes:
 
-1. Add three secrets to this repository (Settings → Secrets and variables → Actions)
-2. Set up the database — paste [`supabase/setup.sql`](supabase/setup.sql) into the Supabase SQL Editor
+| # | Step | Where |
+|---|---|---|
+| 1 | Create a Supabase project | [supabase.com/dashboard/new](https://supabase.com/dashboard/new) |
+| 2 | Copy your three keys | [Project Settings → API](https://supabase.com/dashboard/project/_/settings/api) |
+| 3 | Add them as GitHub secrets | [Settings → Secrets → Actions](https://github.com/JoshSmitherman/Client_CRM/settings/secrets/actions/new) |
+| 4 | Create the tables — paste one SQL file | [supabase/setup.sql](https://github.com/JoshSmitherman/Client_CRM/blob/claude/inspiring-allen-snxv3i/supabase/setup.sql) → [SQL Editor](https://supabase.com/dashboard/project/_/sql/new) |
+| 5 | Allow the sign-in links | [Auth → URL Configuration](https://supabase.com/dashboard/project/_/auth/url-configuration) |
+| 6 | Create your first login | [Actions → Seed demo data](https://github.com/JoshSmitherman/Client_CRM/actions/workflows/seed-demo.yml) |
 
-Then run **Actions → Seed demo data** to create your first login.
-
-**→ [docs/GITHUB-SETUP.md](docs/GITHUB-SETUP.md) walks through all of it.**
+**→ [docs/GITHUB-SETUP.md](docs/GITHUB-SETUP.md) has each step written out in
+full, with a link for every click.**
 
 <details>
 <summary>Running it locally instead</summary>
@@ -28,8 +33,10 @@ cp .env.example .env.local          # fill in your Supabase keys
 npm run dev
 ```
 
-For the database, either paste `supabase/setup.sql` into the Supabase SQL
-Editor, or use the CLI:
+For the database, either paste
+[`supabase/setup.sql`](supabase/setup.sql) into the
+[Supabase SQL Editor](https://supabase.com/dashboard/project/_/sql/new), or use
+the CLI:
 
 ```bash
 npx supabase login
