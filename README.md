@@ -19,7 +19,8 @@ Next.js (App Router) · React · TypeScript · Tailwind CSS · Supabase (Postgre
 | 3 | Add them as GitHub secrets | [Settings → Secrets → Actions](https://github.com/JoshSmitherman/Client_CRM/settings/secrets/actions/new) |
 | 4 | Create the tables — paste one SQL file | [supabase/setup.sql](https://github.com/JoshSmitherman/Client_CRM/blob/claude/inspiring-allen-snxv3i/supabase/setup.sql) → [SQL Editor](https://supabase.com/dashboard/project/_/sql/new) |
 | 5 | Allow the sign-in links | [Auth → URL Configuration](https://supabase.com/dashboard/project/_/auth/url-configuration) |
-| 6 | Create your first login | [Actions → Seed demo data](https://github.com/JoshSmitherman/Client_CRM/actions/workflows/seed-demo.yml) |
+| 6 | Create your first login | Visit `/signup` — the first account becomes the administrator |
+| 7 | Deploy it | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) — **not GitHub Pages**, see why |
 
 **→ [docs/GITHUB-SETUP.md](docs/GITHUB-SETUP.md) has each step written out in
 full, with a link for every click.**
@@ -55,7 +56,7 @@ Supabase credentials the app shows a setup screen rather than an error.
 | Area | State |
 |---|---|
 | Database schema, RLS, audit, storage policies | Complete, verified by 27 assertions in CI |
-| Authentication, invite-only provisioning, route guards | Complete |
+| Authentication: staff self-registration, client invitations, route guards | Complete |
 | Design system, app shells, light/dark, mobile | Complete |
 | **Agency** — dashboard, clients, projects | Complete |
 | **Agency** — project workspace (13 tabs) | Complete |
@@ -80,6 +81,23 @@ place), calendar and Slack integrations, uptime and SSL monitoring,
 Lighthouse checks, and AI-assisted ticket classification.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full design.
+
+## How accounts work
+
+- **The first person to sign up** becomes the agency administrator. Once only.
+- **Agency staff** register themselves at `/signup`. An email address on a
+  domain the administrator has approved becomes a staff account — active
+  straight away, or held for approval, whichever the agency configures.
+- **Everyone else** who signs up gets a profile with no organisation that can
+  read nothing at all. This is deliberate: it is what makes an open signup form
+  safe.
+- **Clients** never register. Staff create their logins from inside the platform
+  and choose which client they belong to; they receive an email to set their own
+  password and can only ever see that one client.
+
+The ladder is applied by `handle_new_user()` in the database, not by the signup
+form, so the same rules hold however an account is created — including directly
+through the Supabase dashboard.
 
 ## Security model
 

@@ -32,6 +32,27 @@ const settingsSchema = z.object({
     .transform((v) => v === 'on'),
   legalAdviceDisclaimer: requiredText('Legal disclaimer', 2000),
   credentialSharingGuidance: requiredText('Credential guidance', 2000),
+  staffSignupMode: z.enum(['disabled', 'domain_allowlist', 'approval_required']),
+  staffDefaultRole: z.enum([
+    'agency_admin',
+    'project_manager',
+    'account_manager',
+    'developer',
+    'designer',
+    'qa',
+    'support_agent',
+  ]),
+  // Entered comma or newline separated; stored as a clean lower-case array.
+  staffEmailDomains: z
+    .string()
+    .trim()
+    .default('')
+    .transform((v) =>
+      v
+        .split(/[\n,]/)
+        .map((d) => d.trim().toLowerCase().replace(/^@/, '').replace(/^https?:\/\//, ''))
+        .filter(Boolean),
+    ),
   reminderOffsets: z
     .string()
     .trim()
@@ -77,6 +98,9 @@ export async function saveAgencySettingsAction(
       legal_advice_disclaimer: input.legalAdviceDisclaimer,
       credential_sharing_guidance: input.credentialSharingGuidance,
       default_reminder_offsets: input.reminderOffsets,
+      staff_signup_mode: input.staffSignupMode,
+      staff_default_role: input.staffDefaultRole,
+      staff_email_domains: input.staffEmailDomains,
     },
     { onConflict: 'id' },
   );
@@ -87,7 +111,14 @@ export async function saveAgencySettingsAction(
     action: 'agency_settings.updated',
     entityType: 'agency_settings',
     entityId: null,
-    newValue: { agency_name: input.agencyName, currency: input.currency },
+    newValue: {
+      agency_name: input.agencyName,
+      currency: input.currency,
+      // Worth auditing: this decides who can register themselves as staff.
+      staff_signup_mode: input.staffSignupMode,
+      staff_email_domains: input.staffEmailDomains,
+      staff_default_role: input.staffDefaultRole,
+    },
   });
 
   revalidatePath('/', 'layout');

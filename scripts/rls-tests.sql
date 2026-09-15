@@ -13,11 +13,42 @@
 -- --------------------------------------------------------------------------
 -- Fixtures (inserted as superuser, bypassing RLS)
 -- --------------------------------------------------------------------------
+-- The very first account to sign up becomes the agency administrator, so a
+-- fresh installation is usable without running a script.
+\echo '--- bootstrap ---'
 insert into auth.users (id, email) values
-  ('11111111-1111-4111-8111-111111111111', 'admin@northpoint.test'),
+  ('11111111-1111-4111-8111-111111111111', 'admin@northpoint.test');
+
+do $$
+declare v_role public.app_role; v_active boolean; v_org uuid;
+begin
+  select role, is_active, organisation_id into v_role, v_active, v_org
+  from public.users where id = '11111111-1111-4111-8111-111111111111';
+
+  if v_role <> 'agency_admin' or not v_active or v_org is null then
+    raise exception 'RLS ASSERTION FAILED: the first signup did not become an active administrator (role=%, active=%, org=%)',
+      v_role, v_active, v_org;
+  end if;
+  raise notice '  pass: the first signup becomes the agency administrator';
+end $$;
+
+insert into auth.users (id, email) values
   ('22222222-2222-4222-8222-222222222222', 'dev@northpoint.test'),
   ('33333333-3333-4333-8333-333333333333', 'owner@acme.test'),
   ('44444444-4444-4444-8444-444444444444', 'owner@globex.test');
+
+-- ...and the second signup does not, even from the same domain.
+do $$
+declare v_role public.app_role; v_active boolean;
+begin
+  select role, is_active into v_role, v_active
+  from public.users where id = '22222222-2222-4222-8222-222222222222';
+
+  if v_role = 'agency_admin' or v_active then
+    raise exception 'RLS ASSERTION FAILED: a later signup was also made an administrator';
+  end if;
+  raise notice '  pass: only the first signup is bootstrapped';
+end $$;
 
 insert into public.organisations (id, kind, name, slug) values
   ('aaaaaaaa-0000-4000-8000-000000000001', 'client', 'Acme Ltd',   'acme-ltd'),
@@ -339,6 +370,101 @@ select pg_temp.assert(
 select pg_temp.assert(
   (select count(*) from public.clients) = 0,
   'a session with no user id sees no clients');
+
+-- --------------------------------------------------------------------------
+-- 10. Staff self-registration ladder
+-- --------------------------------------------------------------------------
+\echo '--- staff signup ---'
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+
+update public.agency_settings
+set staff_email_domains = array['northpoint.test'],
+    staff_signup_mode = 'approval_required',
+    staff_default_role = 'developer';
+
+insert into auth.users (id, email) values
+  ('55555555-5555-4555-8555-555555555555', 'pending@northpoint.test');
+
+do $$
+declare v_role public.app_role; v_active boolean; v_org uuid;
+begin
+  select role, is_active, organisation_id into v_role, v_active, v_org
+  from public.users where id = '55555555-5555-4555-8555-555555555555';
+
+  if v_role <> 'developer' or v_active or v_org is null then
+    raise exception 'RLS ASSERTION FAILED: approval_required did not create a pending staff account (role=%, active=%, org=%)',
+      v_role, v_active, v_org;
+  end if;
+  raise notice '  pass: an allow-listed domain awaits approval when that mode is set';
+end $$;
+
+update public.agency_settings set staff_signup_mode = 'domain_allowlist';
+
+insert into auth.users (id, email) values
+  ('66666666-6666-4666-8666-666666666666', 'auto@northpoint.test');
+
+do $$
+declare v_role public.app_role; v_active boolean;
+begin
+  select role, is_active into v_role, v_active
+  from public.users where id = '66666666-6666-4666-8666-666666666666';
+
+  if v_role <> 'developer' or not v_active then
+    raise exception 'RLS ASSERTION FAILED: domain_allowlist did not activate the staff account';
+  end if;
+  raise notice '  pass: an allow-listed domain is active immediately in that mode';
+end $$;
+
+-- A stranger gets nothing, whatever the mode.
+insert into auth.users (id, email) values
+  ('77777777-7777-4777-8777-777777777777', 'stranger@somewhere-else.test');
+
+do $$
+declare v_active boolean; v_org uuid;
+begin
+  select is_active, organisation_id into v_active, v_org
+  from public.users where id = '77777777-7777-4777-8777-777777777777';
+
+  if v_active or v_org is not null then
+    raise exception 'RLS ASSERTION FAILED: an unrecognised domain gained access';
+  end if;
+  raise notice '  pass: an unrecognised domain gets no access at all';
+end $$;
+
+-- A pending staff member can reach nothing until an administrator activates them.
+set role authenticated;
+select set_config('request.jwt.claim.sub', '55555555-5555-4555-8555-555555555555', false);
+
+select pg_temp.assert(
+  (select count(*) from public.projects) = 0,
+  'a staff account awaiting approval sees no projects');
+
+select pg_temp.assert(
+  (select count(*) from public.clients) = 0,
+  'a staff account awaiting approval sees no clients');
+
+-- An invitation still wins over the domain rules.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+
+insert into public.invitations (email, role, organisation_id)
+values ('invited@northpoint.test', 'agency_admin', '00000000-0000-4000-8000-000000000001');
+
+insert into auth.users (id, email) values
+  ('88888888-8888-4888-8888-888888888888', 'invited@northpoint.test');
+
+do $$
+declare v_role public.app_role; v_active boolean;
+begin
+  select role, is_active into v_role, v_active
+  from public.users where id = '88888888-8888-4888-8888-888888888888';
+
+  if v_role <> 'agency_admin' or not v_active then
+    raise exception 'RLS ASSERTION FAILED: the invitation did not take precedence over the domain rule';
+  end if;
+  raise notice '  pass: an invitation overrides the domain default';
+end $$;
 
 reset role;
 \echo 'ALL RLS ASSERTIONS PASSED'

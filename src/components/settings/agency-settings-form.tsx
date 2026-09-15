@@ -3,10 +3,11 @@
 import { useActionState } from 'react';
 
 import { Card, CardBody, CardFooter, CardHeader } from '@/components/ui/card';
-import { Checkbox, Field, Input, Textarea } from '@/components/ui/field';
+import { Checkbox, Field, Input, Select, Textarea } from '@/components/ui/field';
 import { FormMessage, SubmitButton } from '@/components/ui/form-status';
 import { saveAgencySettingsAction } from '@/lib/actions/settings';
 import { idleState } from '@/lib/actions/types';
+import { AGENCY_ROLES, ROLE_LABELS } from '@/lib/permissions';
 import type { Tables } from '@/lib/supabase/database.types';
 
 export function AgencySettingsForm({ settings }: { settings: Tables<'agency_settings'> | null }) {
@@ -77,6 +78,69 @@ export function AgencySettingsForm({ settings }: { settings: Tables<'agency_sett
                 id={id}
                 name="reminderOffsets"
                 defaultValue={(settings?.default_reminder_offsets ?? [60, 30, 14, 7, 0]).join(',')}
+                aria-describedby={describedBy}
+                aria-invalid={invalid}
+              />
+            )}
+          </Field>
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader
+          title="Staff access"
+          description="How your own team gets accounts. Client logins are always created from inside the platform."
+        />
+        <CardBody className="grid gap-4 sm:grid-cols-2">
+          <Field
+            label="Self-registration"
+            error={e.staffSignupMode}
+            hint="Applies to email addresses on an approved domain below."
+          >
+            {({ id, describedBy }) => (
+              <Select
+                id={id}
+                name="staffSignupMode"
+                defaultValue={settings?.staff_signup_mode ?? 'approval_required'}
+                aria-describedby={describedBy}
+                options={[
+                  { value: 'approval_required', label: 'Allowed, but I approve each one' },
+                  { value: 'domain_allowlist', label: 'Allowed, active straight away' },
+                  { value: 'disabled', label: 'Off — invitation only' },
+                ]}
+              />
+            )}
+          </Field>
+
+          <Field
+            label="Role new staff get"
+            error={e.staffDefaultRole}
+            hint="You can change anyone's role afterwards on the Team tab."
+          >
+            {({ id, describedBy }) => (
+              <Select
+                id={id}
+                name="staffDefaultRole"
+                defaultValue={settings?.staff_default_role ?? 'project_manager'}
+                aria-describedby={describedBy}
+                options={AGENCY_ROLES.map((r) => ({ value: r, label: ROLE_LABELS[r] }))}
+              />
+            )}
+          </Field>
+
+          <Field
+            label="Approved email domains"
+            error={e.staffEmailDomains}
+            hint="One per line, e.g. northpointdigital.co.uk. Anyone signing up from another domain gets an account with no access at all."
+            className="sm:col-span-2"
+          >
+            {({ id, describedBy, invalid }) => (
+              <Textarea
+                id={id}
+                name="staffEmailDomains"
+                rows={3}
+                defaultValue={(settings?.staff_email_domains ?? []).join('\n')}
+                placeholder="youragency.co.uk"
                 aria-describedby={describedBy}
                 aria-invalid={invalid}
               />

@@ -11,6 +11,7 @@ import {
   acceptInviteSchema,
   resetRequestSchema,
   signInSchema,
+  signUpSchema,
   updatePasswordSchema,
 } from '@/lib/validation/auth';
 import { recordAudit } from '@/lib/audit';
@@ -165,6 +166,77 @@ export async function acceptInvitationAction(
     return errorState(
       'Your password is set, but your account has not been linked to an organisation yet. ' +
         'Contact your account manager.',
+    );
+  }
+
+  revalidatePath('/', 'layout');
+  redirect(homePathForRole(profile.role));
+}
+
+/**
+ * Staff self-registration through Supabase Authentication.
+ *
+ * What the new account can actually do is decided entirely by
+ * handle_new_user() in the database, not here: an invitation wins, then the
+ * first-ever account becomes the administrator, then an allow-listed email
+ * domain becomes staff (active or pending approval), and anything else gets a
+ * profile with no organisation that can read nothing.
+ *
+ * Doing it in the trigger rather than in this action means the same rules apply
+ * however the account is created — including directly through the Supabase
+ * dashboard.
+ */
+export async function signUpAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const parsed = signUpSchema.safeParse(formObject(formData));
+  if (!parsed.success) {
+    return errorState('Check the details below.', zodErrors(parsed.error));
+  }
+
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.auth.signUp({
+    email: parsed.data.email,
+    password: parsed.data.password,
+    options: {
+      data: { full_name: parsed.data.fullName },
+      emailRedirectTo: `${siteUrl()}/auth/callback?next=/`,
+    },
+  });
+
+  if (error) {
+    return errorState(error.message);
+  }
+
+  // Supabase returns a user with no identities when the address is already
+  // registered, rather than saying so — which is the right call, since telling
+  // a stranger would confirm the address exists.
+  if (data.user && data.user.identities && data.user.identities.length === 0) {
+    return successState(
+      'Check your email. If that address can be registered, a confirmation link is on its way.',
+    );
+  }
+
+  // Email confirmation is on: there is no session yet.
+  if (!data.session) {
+    return successState(
+      'Almost there — check your email and click the confirmation link to activate your account.',
+    );
+  }
+
+  const { data: profile } = await supabase
+    .from('users')
+    .select('role, is_active')
+    .eq('id', data.user?.id ?? '')
+    .maybeSingle();
+
+  if (!profile?.is_active) {
+    await supabase.auth.signOut();
+    return successState(
+      'Your account has been created and is waiting for an administrator to approve it. ' +
+        'You will be able to sign in once they do.',
     );
   }
 

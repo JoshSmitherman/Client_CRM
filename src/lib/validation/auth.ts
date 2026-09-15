@@ -29,3 +29,15 @@ export const acceptInviteSchema = z
     message: 'Passwords do not match',
     path: ['confirmPassword'],
   });
+
+export const signUpSchema = z
+  .object({
+    fullName: requiredText('Full name', 120),
+    email,
+    password,
+    confirmPassword: z.string(),
+  })
+  .refine((v) => v.password === v.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });

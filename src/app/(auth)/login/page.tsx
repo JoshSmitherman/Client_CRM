@@ -15,14 +15,24 @@ export default function LoginPage() {
 
       <LoginForm />
 
-      <p className="mt-6 text-[13px] text-[var(--text-muted)]">
-        Accounts are created by invitation. If you need access, contact your account manager.
-      </p>
-      <p className="mt-2 text-[13px]">
+      <p className="mt-6 text-[13px]">
         <Link href="/reset-password" className="font-medium text-[var(--accent-text)] hover:underline">
           Forgotten your password?
         </Link>
       </p>
+
+      <div className="mt-6 border-t border-[var(--border-subtle)] pt-5 text-[13px]">
+        <p className="text-[var(--text-secondary)]">
+          <span className="font-medium text-[var(--text-primary)]">Agency staff:</span>{' '}
+          <Link href="/signup" className="font-medium text-[var(--accent-text)] hover:underline">
+            create an account
+          </Link>{' '}
+          with your work email address.
+        </p>
+        <p className="mt-1.5 text-[var(--text-muted)]">
+          Clients are given access by their account manager — get in touch if you need a login.
+        </p>
+      </div>
     </>
   );
 }

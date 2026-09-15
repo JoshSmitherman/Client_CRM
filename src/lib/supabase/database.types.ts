@@ -93,6 +93,9 @@ export interface Database {
           credential_sharing_guidance: string;
           created_at: string;
           updated_at: string;
+          staff_email_domains: string[];
+          staff_signup_mode: string;
+          staff_default_role: Database['public']['Enums']['app_role'];
         };
         Insert: {
           id?: boolean;
@@ -110,6 +113,9 @@ export interface Database {
           credential_sharing_guidance?: string;
           created_at?: string;
           updated_at?: string;
+          staff_email_domains?: string[];
+          staff_signup_mode?: string;
+          staff_default_role?: Database['public']['Enums']['app_role'];
         };
         Update: {
           id?: boolean;
@@ -127,6 +133,9 @@ export interface Database {
           credential_sharing_guidance?: string;
           created_at?: string;
           updated_at?: string;
+          staff_email_domains?: string[];
+          staff_signup_mode?: string;
+          staff_default_role?: Database['public']['Enums']['app_role'];
         };
         Relationships: [
         ];

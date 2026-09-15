@@ -14,6 +14,7 @@ There are six steps:
 4. [Create the database tables](#step-4--create-the-database-tables)
 5. [Allow the sign-in links](#step-5--allow-the-sign-in-links)
 6. [Create your first login](#step-6--create-your-first-login)
+7. [Put it on the internet](#step-7--put-it-on-the-internet)
 
 ---
 
@@ -172,53 +173,69 @@ common reason invitations appear broken.
 
 ## Step 6 — Create your first login
 
-The database has tables but no people in it yet. This creates your account.
+The database has tables but nobody in it yet. **The first person to register
+becomes the agency administrator** — that is you.
 
-1. Open **<https://github.com/JoshSmitherman/Client_CRM/actions/workflows/seed-demo.yml>**
-2. Click **Run workflow** on the right
-3. Fill in the boxes:
-   - **What to create** — choose `demo` to get example clients and projects to
-     look around, or `admin-only` for just your own account with nothing else
-   - **Administrator email** — your real email address
-   - **Password** — your own password, at least 12 characters
-     (leave blank and it uses a default, which it prints in the log)
-4. Click the green **Run workflow** button
-5. Wait about a minute for the green tick
-6. Click into the finished run, open the **Seed** step, and scroll to the
-   bottom — it lists every account it created
+1. Deploy the app first (step 7), or run it locally with `npm run dev`
+2. Go to `/signup`
+3. Enter your name, work email address and a password
+4. You are signed in as the administrator
 
-**Choosing `demo`** creates four example clients (Northshore Plumbing,
-Harbourside Dental, Verity Legal, Kestrel Fitness) with projects at different
-stages, tasks, part-finished onboarding, change requests, support tickets and
-maintenance plans, so you can see the whole system working. You can remove it
-all later by running the workflow again with `demo-reset`.
+That happens exactly once. Everyone after you either needs an invitation, or an
+email address on a domain you approve in Settings.
 
-> Change any default passwords before the site is reachable by other people.
+### Then set up how the rest of your team gets in
 
----
+In the app, go to **Settings → Agency → Staff access**:
 
-## Step 7 — Put it on the internet (optional)
+- **Approved email domains** — put your agency's domain in, e.g.
+  `youragency.co.uk`. Anyone signing up from a different domain gets an account
+  that can see nothing at all.
+- **Self-registration** — choose whether an approved domain is active straight
+  away, or waits for you to approve it (**Settings → Team** shows the queue).
+- **Role new staff get** — you can change anyone's role afterwards.
 
-The easiest route needs no GitHub secrets at all.
+### Client logins
 
-1. Go to **<https://vercel.com/new>** and sign in with GitHub
-2. Find **Client_CRM** in the list and click **Import**
-3. Under **Environment Variables**, add four:
+Clients never register themselves. Create them from inside the platform:
+**Settings → Team → Invite someone**, choose a client role, and pick which
+client they belong to. They get an email with a link to set their own password,
+and can only ever see that one client's projects and files.
 
-   | Name | Value |
-   |---|---|
-   | `NEXT_PUBLIC_SUPABASE_URL` | Your Project URL |
-   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Your `anon` key |
-   | `SUPABASE_SERVICE_ROLE_KEY` | Your `service_role` key |
-   | `NEXT_PUBLIC_SITE_URL` | Leave for now; set it to your Vercel address after the first deploy |
+### Want example data to look around first?
 
-4. Click **Deploy**
-5. When it finishes, copy your new address (e.g. `https://client-crm.vercel.app`)
-6. Go back to
-   **<https://supabase.com/dashboard/project/_/auth/url-configuration>** and add
-   `https://your-new-address.vercel.app/auth/callback` to the Redirect URLs
+[Actions → Seed demo data → Run workflow](https://github.com/JoshSmitherman/Client_CRM/actions/workflows/seed-demo.yml)
+creates four example clients with projects, tasks, requests and maintenance
+plans. Run it again with `demo-reset` to remove it all later.
 
----
+## Step 7 — Put it on the internet
+
+**This cannot be hosted on GitHub Pages.** GitHub Pages serves static files and
+has no server; this application needs one on every request — most importantly to
+keep the Supabase service role key away from the browser. Without that, creating
+client logins would mean shipping a key that bypasses every permission rule to
+anyone who opens developer tools.
+
+**[docs/DEPLOYMENT.md](DEPLOYMENT.md) explains the options.** The short version:
+
+| Host | Effort | Note |
+|---|---|---|
+| [Vercel](https://vercel.com/new) | 5 minutes | No configuration needed. Free plan is non-commercial only — check their terms |
+| [Netlify](https://app.netlify.com/start) | 10 minutes | Free tier allows commercial use |
+| Cloudflare Workers | ~1 hour | Cheapest at scale, needs an adapter |
+
+Whichever you choose, set these four environment variables:
+
+| Name | Value |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Your Project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Your `anon` key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Your `service_role` key |
+| `NEXT_PUBLIC_SITE_URL` | Your live address, once you have it |
+| `REMINDER_SWEEP_SECRET` | Any long random string |
+
+Then add `https://your-address/auth/callback` to the Supabase
+[redirect URLs](https://supabase.com/dashboard/project/_/auth/url-configuration).
 
 ## What runs on its own
 
@@ -256,9 +273,11 @@ Either the address is not in the Redirect URLs list (step 5), or the invitation
 really is more than 14 days old. Send a new one.
 
 **Signing in says "Your account is not active yet".**
-That account was created without an invitation, so it deliberately has no
-company attached and can see nothing. That is the system working as intended.
-Invite the address properly from the app, or re-run the seed workflow.
+One of two things. Either the account registered from an email domain you have
+not approved, in which case it deliberately has no access — invite the address
+properly instead. Or it registered from an approved domain while
+self-registration is set to "I approve each one", in which case approve it at
+**Settings → Team**.
 
 **The database workflow cannot connect.**
 `SUPABASE_DB_URL` still has `[YOUR-PASSWORD]` in it, or the password is wrong.

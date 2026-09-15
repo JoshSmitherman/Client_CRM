@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { AgencySettingsForm } from '@/components/settings/agency-settings-form';
+import { ApprovalQueue, type PendingStaff } from '@/components/settings/approval-queue';
 import { InviteForm } from '@/components/settings/invite-form';
 import { StageList } from '@/components/settings/stage-list';
 import { TeamTable, type PendingInvite, type TeamMember } from '@/components/settings/team-table';
@@ -35,8 +36,15 @@ export default async function SettingsPage({
 
   const supabase = await createClient();
 
-  const [{ data: settings }, { data: members }, { data: invitations }, stages, clients, { data: audit }] =
-    await Promise.all([
+  const [
+    { data: settings },
+    { data: members },
+    { data: invitations },
+    { data: pendingStaff },
+    stages,
+    clients,
+    { data: audit },
+  ] = await Promise.all([
       supabase.from('agency_settings').select('*').maybeSingle(),
       supabase
         .from('users')
@@ -48,6 +56,13 @@ export default async function SettingsPage({
         .select('id, email, full_name, role, expires_at, created_at')
         .is('accepted_at', null)
         .is('revoked_at', null)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('users')
+        .select('id, full_name, email, role, created_at')
+        .eq('is_active', false)
+        .not('organisation_id', 'is', null)
+        .is('deleted_at', null)
         .order('created_at', { ascending: false }),
       getLifecycleStages(),
       getClients(),
@@ -105,7 +120,9 @@ export default async function SettingsPage({
       {active === 'agency' ? <AgencySettingsForm settings={settings} /> : null}
 
       {active === 'team' ? (
-        <Card>
+        <>
+          <ApprovalQueue pending={(pendingStaff ?? []) as PendingStaff[]} />
+          <Card>
           <CardHeader
             title="People"
             description="Accounts are created by invitation only — there is no public signup."
@@ -115,8 +132,9 @@ export default async function SettingsPage({
             invitations={(invitations ?? []) as PendingInvite[]}
             currentUserId={session.userId}
             canManage
-          />
-        </Card>
+            />
+          </Card>
+        </>
       ) : null}
 
       {active === 'stages' ? <StageList stages={stages} /> : null}
