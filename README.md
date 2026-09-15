@@ -8,30 +8,40 @@ Next.js (App Router) · React · TypeScript · Tailwind CSS · Supabase (Postgre
 
 ---
 
-## Quick start
+## Getting started
+
+**No local install needed.** Two steps, both in the browser:
+
+1. Add three secrets to this repository (Settings → Secrets and variables → Actions)
+2. Set up the database — paste [`supabase/setup.sql`](supabase/setup.sql) into the Supabase SQL Editor
+
+Then run **Actions → Seed demo data** to create your first login.
+
+**→ [docs/GITHUB-SETUP.md](docs/GITHUB-SETUP.md) walks through all of it.**
+
+<details>
+<summary>Running it locally instead</summary>
 
 ```bash
 npm install
-cp .env.example .env.local     # then fill in your Supabase keys
+cp .env.example .env.local          # fill in your Supabase keys
 npm run dev
 ```
 
-Without Supabase credentials the app shows a setup screen rather than an error.
-**[docs/SETUP.md](docs/SETUP.md) is the full walkthrough** — creating the
-Supabase project, pushing the schema, loading the seed, and deploying.
-
-The short version:
+For the database, either paste `supabase/setup.sql` into the Supabase SQL
+Editor, or use the CLI:
 
 ```bash
 npx supabase login
 npx supabase link --project-ref <your-project-ref>
-npx supabase db push                    # 14 migrations: 40 tables, RLS, triggers, storage
-# then paste supabase/seed.sql into the Supabase SQL Editor and run it
-node scripts/seed-demo.mjs              # demo logins + a realistic book of work
-npm run dev
+npx supabase db push
+node scripts/seed-demo.mjs          # demo logins and a book of work
 ```
 
----
+[docs/SETUP.md](docs/SETUP.md) is the detailed local walkthrough. Without
+Supabase credentials the app shows a setup screen rather than an error.
+
+</details>
 
 ## What is built
 
@@ -79,11 +89,16 @@ Row Level Security is the boundary, not the UI.
 ### Verifying it
 
 ```bash
-./scripts/verify-schema.sh /var/run/postgresql 55432
+./scripts/verify-schema.sh              # local
+./scripts/verify-schema.sh localhost 5432
 ```
 
-Applies every migration plus the seed to a throwaway Postgres database and runs
-**27 Row Level Security assertions** covering tenant isolation,
+This also runs on every push. See the **CI** workflow.
+
+Applies every migration twice to a throwaway Postgres database — then the
+generated `setup.sql` twice, since that file is pasted in by hand and a retry
+after a half-finished run is normal — and runs **27 Row Level Security
+assertions** covering tenant isolation,
 internal-comment visibility, cross-tenant writes, column guards, state
 transitions, privilege escalation, audit-log immutability, agency member
 scoping and anonymous access.
@@ -102,6 +117,7 @@ scoping and anonymous access.
 | `node scripts/generate-types.mjs` | Regenerate `database.types.ts` from a live schema |
 | `node scripts/seed-demo.mjs` | Create demo logins and data |
 | `node scripts/seed-demo.mjs --reset` | Wipe demo rows and re-seed |
+| `node scripts/build-setup-sql.mjs` | Rebuild `supabase/setup.sql` from the migrations |
 | `./scripts/verify-schema.sh` | Apply migrations to a scratch DB and run the RLS assertions |
 
 ---
@@ -120,8 +136,10 @@ src/
   lib/queries     typed read helpers for Server Components
   lib/validation  zod schemas shared by forms and actions
 supabase/
-  migrations/     0001 … 0013
+  migrations/     0001 … 0013, applied by the Supabase CLI
   seed.sql        agency-configurable reference data
+  setup.sql       generated: every migration + the seed, as one pasteable file
+.github/workflows CI, database setup, demo seeding, deployment
 scripts/          type generation, schema verification, demo seed
 docs/             ARCHITECTURE.md, SETUP.md
 ```

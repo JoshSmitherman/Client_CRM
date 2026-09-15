@@ -2,11 +2,11 @@
 -- 0006  Change requests (with quote/approval round-trip) and support requests
 -- ===========================================================================
 
-create sequence public.change_request_reference_seq;
-create sequence public.support_request_reference_seq;
+create sequence if not exists public.change_request_reference_seq;
+create sequence if not exists public.support_request_reference_seq;
 
 -- --- change_requests ---------------------------------------------------------
-create table public.change_requests (
+create table if not exists public.change_requests (
   id                        uuid primary key default gen_random_uuid(),
   reference                 text not null unique
                               default 'CR-' || lpad(nextval('public.change_request_reference_seq')::text, 4, '0'),
@@ -39,16 +39,21 @@ create table public.change_requests (
   deleted_at                timestamptz
 );
 
-create index change_requests_project_idx on public.change_requests (project_id, status)
+create index if not exists change_requests_project_idx
+  on public.change_requests (project_id, status)
   where deleted_at is null;
-create index change_requests_client_idx on public.change_requests (client_id, status)
+create index if not exists change_requests_client_idx
+  on public.change_requests (client_id, status)
   where deleted_at is null;
-create index change_requests_assigned_idx on public.change_requests (assigned_to)
+create index if not exists change_requests_assigned_idx
+  on public.change_requests (assigned_to)
   where deleted_at is null;
-create index change_requests_open_idx on public.change_requests (submitted_at desc)
+create index if not exists change_requests_open_idx
+  on public.change_requests (submitted_at desc)
   where deleted_at is null
     and status not in ('completed', 'rejected', 'cancelled');
 
+drop trigger if exists change_requests_set_updated_at on public.change_requests;
 create trigger change_requests_set_updated_at
   before update on public.change_requests
   for each row execute function public.set_updated_at();
@@ -58,7 +63,7 @@ comment on column public.change_requests.internal_notes is
 
 -- --- change_request_approvals ------------------------------------------------
 -- One row per quote round, so the full approval history is preserved.
-create table public.change_request_approvals (
+create table if not exists public.change_request_approvals (
   id                        uuid primary key default gen_random_uuid(),
   change_request_id         uuid not null references public.change_requests (id) on delete cascade,
   quoted_hours              numeric(6,2) check (quoted_hours is null or quoted_hours >= 0),
@@ -81,22 +86,26 @@ create table public.change_request_approvals (
   )
 );
 
-create index cra_request_idx on public.change_request_approvals (change_request_id, offered_at desc);
-create unique index cra_single_pending_idx
+create index if not exists cra_request_idx
+  on public.change_request_approvals (change_request_id, offered_at desc);
+create unique index if not exists cra_single_pending_idx
   on public.change_request_approvals (change_request_id)
   where decision = 'pending';
 
+drop trigger if exists change_request_approvals_set_updated_at on public.change_request_approvals;
 create trigger change_request_approvals_set_updated_at
   before update on public.change_request_approvals
   for each row execute function public.set_updated_at();
 
 -- Deferred FK from 0005.
-alter table public.files
-  add constraint files_change_request_id_fkey
-  foreign key (change_request_id) references public.change_requests (id) on delete cascade;
+do $$ begin
+  alter table public.files
+    add constraint files_change_request_id_fkey
+    foreign key (change_request_id) references public.change_requests (id) on delete cascade;
+exception when duplicate_object then null; end $$;
 
 -- --- support_requests --------------------------------------------------------
-create table public.support_requests (
+create table if not exists public.support_requests (
   id                  uuid primary key default gen_random_uuid(),
   reference           text not null unique
                         default 'SR-' || lpad(nextval('public.support_request_reference_seq')::text, 4, '0'),
@@ -126,18 +135,24 @@ create table public.support_requests (
   deleted_at          timestamptz
 );
 
-create index support_requests_client_idx on public.support_requests (client_id, status)
+create index if not exists support_requests_client_idx
+  on public.support_requests (client_id, status)
   where deleted_at is null;
-create index support_requests_project_idx on public.support_requests (project_id)
+create index if not exists support_requests_project_idx
+  on public.support_requests (project_id)
   where deleted_at is null;
-create index support_requests_open_idx on public.support_requests (urgency, submitted_at desc)
+create index if not exists support_requests_open_idx
+  on public.support_requests (urgency, submitted_at desc)
   where deleted_at is null and status not in ('resolved', 'closed');
 
+drop trigger if exists support_requests_set_updated_at on public.support_requests;
 create trigger support_requests_set_updated_at
   before update on public.support_requests
   for each row execute function public.set_updated_at();
 
 -- Deferred FK from 0005.
-alter table public.files
-  add constraint files_support_request_id_fkey
-  foreign key (support_request_id) references public.support_requests (id) on delete cascade;
+do $$ begin
+  alter table public.files
+    add constraint files_support_request_id_fkey
+    foreign key (support_request_id) references public.support_requests (id) on delete cascade;
+exception when duplicate_object then null; end $$;

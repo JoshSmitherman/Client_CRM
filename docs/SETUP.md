@@ -1,7 +1,11 @@
-# Setup guide
+# Setup guide (local)
 
 Everything you need to take this repository from a fresh clone to a running
 application on your own Supabase project.
+
+> **Prefer not to install anything?** [docs/GITHUB-SETUP.md](GITHUB-SETUP.md)
+> does the same job entirely in the browser: add three repository secrets, paste
+> one SQL file, run a workflow. Come back here if you want it running locally.
 
 Nothing here requires you to share credentials with anyone. Keys stay in your
 `.env.local`, which is git-ignored.
@@ -36,7 +40,18 @@ dashboard URL after `/project/`, e.g. in
 
 ---
 
-## 3. Push the database schema
+## 3. Set up the database
+
+### The quick way — one SQL file
+
+Open `supabase/setup.sql`, copy the whole thing, and run it in the Supabase
+**SQL Editor**. That is the entire database: 40 tables, the permission
+functions, every Row Level Security policy, the guard triggers, the storage
+bucket and the reference data. It is safe to run more than once.
+
+Skip to step 4 if you take this route.
+
+### The CLI way
 
 From the repository root:
 
@@ -51,21 +66,11 @@ npx supabase db push        # applies supabase/migrations/*.sql in order
 This creates 40 tables, 34 enum types, the permission functions, all Row Level
 Security policies, the column guard triggers and the private storage bucket.
 
-### Load the reference data
-
-The seed adds agency settings, the 15 lifecycle stages, the 12-section
-onboarding template, three example maintenance tiers and the 16-item handover
-checklist. It is idempotent — running it twice changes nothing.
-
-Either paste `supabase/seed.sql` into the dashboard's **SQL Editor** and run it,
-or from the CLI:
-
-```bash
-psql "$(npx supabase status -o json | jq -r '.DB_URL')" -f supabase/seed.sql
-```
-
-> On a hosted project the simplest route is the SQL Editor: open
-> `supabase/seed.sql`, copy the contents, paste, **Run**.
+`db push` applies the migrations but not the seed, so load the reference data
+too — agency settings, the 15 lifecycle stages, the 12-section onboarding
+template, three example maintenance tiers and the 16-item handover checklist.
+Paste `supabase/seed.sql` into the **SQL Editor** and run it. It is idempotent,
+so running it twice changes nothing.
 
 ---
 
@@ -181,14 +186,31 @@ If you have PostgreSQL 16 available locally, you can apply every migration and
 run the security assertions against a throwaway database:
 
 ```bash
-./scripts/verify-schema.sh /var/run/postgresql 55432
+./scripts/verify-schema.sh              # local socket
+./scripts/verify-schema.sh localhost 5432
 ```
 
 It applies `scripts/supabase-stubs.sql` (stand-ins for the parts Supabase
-provides), then every migration, the seed, and 23 Row Level Security assertions
-covering tenant isolation, internal-comment visibility, cross-tenant writes,
-column guards, privilege escalation, audit-log immutability and anonymous
-access.
+provides), then every migration **twice**, then the generated `setup.sql`
+twice, then 27 Row Level Security assertions covering tenant isolation,
+internal-comment visibility, cross-tenant writes, column guards,
+change-request state transitions, privilege escalation, audit-log immutability,
+agency member scoping and anonymous access.
+
+The same thing runs on every push — see the **CI** workflow.
+
+### Changing the schema
+
+Edit the files in `supabase/migrations/`, then regenerate the single-file
+script and the TypeScript types:
+
+```bash
+node scripts/build-setup-sql.mjs
+node scripts/generate-types.mjs          # against a database with the schema applied
+```
+
+CI fails if `supabase/setup.sql` no longer matches the migrations, so the file
+people paste can never drift from the source.
 
 ---
 

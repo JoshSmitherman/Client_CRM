@@ -35,6 +35,7 @@ begin
 end;
 $$;
 
+drop trigger if exists files_guard_columns on public.files;
 create trigger files_guard_columns
   before update on public.files
   for each row execute function public.guard_file_columns();
@@ -71,6 +72,7 @@ begin
 end;
 $$;
 
+drop trigger if exists change_requests_guard_columns on public.change_requests;
 create trigger change_requests_guard_columns
   before update on public.change_requests
   for each row execute function public.guard_change_request_columns();
@@ -105,6 +107,7 @@ begin
 end;
 $$;
 
+drop trigger if exists support_requests_guard_columns on public.support_requests;
 create trigger support_requests_guard_columns
   before update on public.support_requests
   for each row execute function public.guard_support_request_columns();
@@ -137,6 +140,7 @@ begin
 end;
 $$;
 
+drop trigger if exists tasks_guard_columns on public.tasks;
 create trigger tasks_guard_columns
   before update on public.tasks
   for each row execute function public.guard_task_columns();
@@ -164,6 +168,7 @@ begin
 end;
 $$;
 
+drop trigger if exists website_pages_guard_columns on public.website_pages;
 create trigger website_pages_guard_columns
   before update on public.website_pages
   for each row execute function public.guard_website_page_columns();
@@ -192,6 +197,7 @@ begin
 end;
 $$;
 
+drop trigger if exists onboarding_sections_guard_columns on public.onboarding_sections;
 create trigger onboarding_sections_guard_columns
   before update on public.onboarding_sections
   for each row execute function public.guard_onboarding_section_columns();
@@ -223,6 +229,7 @@ begin
 end;
 $$;
 
+drop trigger if exists cra_guard_columns on public.change_request_approvals;
 create trigger cra_guard_columns
   before update on public.change_request_approvals
   for each row execute function public.guard_cra_columns();
@@ -252,6 +259,7 @@ begin
 end;
 $$;
 
+drop trigger if exists plan_requests_guard_columns on public.maintenance_plan_requests;
 create trigger plan_requests_guard_columns
   before update on public.maintenance_plan_requests
   for each row execute function public.guard_plan_request_columns();
@@ -301,6 +309,7 @@ begin
 end;
 $$;
 
+drop trigger if exists change_requests_guard_transition on public.change_requests;
 create trigger change_requests_guard_transition
   before update of status on public.change_requests
   for each row execute function public.guard_change_request_transition();

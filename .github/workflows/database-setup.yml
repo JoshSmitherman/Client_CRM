@@ -1,0 +1,68 @@
+name: Set up the database
+
+# Applies supabase/setup.sql to your Supabase project.
+#
+# This is the alternative to pasting the file into the Supabase SQL Editor by
+# hand. Either route is fine; this one just saves the copy and paste.
+#
+# Needs one secret:
+#   SUPABASE_DB_URL   Supabase Dashboard -> Project Settings -> Database
+#                     -> Connection string -> URI  (use the pooler URI, and
+#                     replace [YOUR-PASSWORD] with your database password)
+#
+# Safe to run more than once — every statement in setup.sql is guarded.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "apply" to confirm you want to change the database'
+        required: true
+        default: ''
+
+jobs:
+  apply:
+    name: Apply setup.sql
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the confirmation
+        if: inputs.confirm != 'apply'
+        run: |
+          echo "::error::Type \"apply\" in the confirmation box to run this."
+          exit 1
+
+      - uses: actions/checkout@v4
+
+      - name: Check the secret is present
+        run: |
+          if [ -z "${{ secrets.SUPABASE_DB_URL }}" ]; then
+            echo "::error::SUPABASE_DB_URL is not set."
+            echo "Add it under Settings -> Secrets and variables -> Actions."
+            echo "See docs/GITHUB-SETUP.md."
+            exit 1
+          fi
+
+      - name: Install the Postgres client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Apply the schema
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/setup.sql
+          echo "Schema applied."
+
+      - name: Report what exists now
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          psql "$DB_URL" -At -c "
+            select
+              (select count(*) from information_schema.tables
+                where table_schema = 'public' and table_type = 'BASE TABLE') || ' tables, ' ||
+              (select count(*) from pg_policies where schemaname = 'public') || ' policies, ' ||
+              (select count(*) from public.lifecycle_stages) || ' lifecycle stages, ' ||
+              (select count(*) from public.maintenance_plans) || ' maintenance plans'
+          "
+          echo ""
+          echo "Next: Actions -> \"Seed demo data\" -> Run workflow, to create your first login."

@@ -31,10 +31,12 @@ end $$;
 -- Identity
 -- ---------------------------------------------------------------------------
 
+drop policy if exists organisations_select on public.organisations;
 create policy organisations_select on public.organisations
   for select to authenticated
   using (public.is_agency() or id = public.current_organisation_id());
 
+drop policy if exists organisations_write on public.organisations;
 create policy organisations_write on public.organisations
   for all to authenticated
   using (public.is_agency_manager())
@@ -42,6 +44,7 @@ create policy organisations_write on public.organisations
 
 -- A user always sees themselves; agency users see all staff and client contacts
 -- they can reach; client users see colleagues in their own organisation only.
+drop policy if exists users_select on public.users;
 create policy users_select on public.users
   for select to authenticated
   using (
@@ -52,11 +55,13 @@ create policy users_select on public.users
 
 -- Self-service profile edits. Role and organisation changes are blocked here by
 -- the companion trigger below; only an admin may alter those columns.
+drop policy if exists users_update_self on public.users;
 create policy users_update_self on public.users
   for update to authenticated
   using (id = auth.uid())
   with check (id = auth.uid());
 
+drop policy if exists users_admin_write on public.users;
 create policy users_admin_write on public.users
   for all to authenticated
   using (public.is_agency_admin())
@@ -84,13 +89,16 @@ begin
 end;
 $$;
 
+drop trigger if exists users_guard_privileges on public.users;
 create trigger users_guard_privileges
   before update on public.users
   for each row execute function public.guard_user_privileges();
 
+drop policy if exists agency_settings_select on public.agency_settings;
 create policy agency_settings_select on public.agency_settings
   for select to authenticated using (true);
 
+drop policy if exists agency_settings_write on public.agency_settings;
 create policy agency_settings_write on public.agency_settings
   for all to authenticated
   using (public.is_agency_admin())
@@ -98,6 +106,7 @@ create policy agency_settings_write on public.agency_settings
 
 -- Agency admins manage all invitations; a client_owner may invite colleagues
 -- into their own organisation only, and only with client roles.
+drop policy if exists invitations_select on public.invitations;
 create policy invitations_select on public.invitations
   for select to authenticated
   using (
@@ -105,11 +114,13 @@ create policy invitations_select on public.invitations
     or organisation_id = public.current_organisation_id()
   );
 
+drop policy if exists invitations_agency_write on public.invitations;
 create policy invitations_agency_write on public.invitations
   for all to authenticated
   using (public.is_agency_admin())
   with check (public.is_agency_admin());
 
+drop policy if exists invitations_client_owner_insert on public.invitations;
 create policy invitations_client_owner_insert on public.invitations
   for insert to authenticated
   with check (
@@ -118,6 +129,7 @@ create policy invitations_client_owner_insert on public.invitations
     and role in ('client_owner', 'client_member')
   );
 
+drop policy if exists invitations_client_owner_revoke on public.invitations;
 create policy invitations_client_owner_revoke on public.invitations
   for update to authenticated
   using (
@@ -134,19 +146,23 @@ create policy invitations_client_owner_revoke on public.invitations
 -- CRM
 -- ---------------------------------------------------------------------------
 
+drop policy if exists clients_select on public.clients;
 create policy clients_select on public.clients
   for select to authenticated
   using (deleted_at is null and public.can_access_client(id));
 
+drop policy if exists clients_insert on public.clients;
 create policy clients_insert on public.clients
   for insert to authenticated
   with check (public.is_agency_manager());
 
+drop policy if exists clients_update on public.clients;
 create policy clients_update on public.clients
   for update to authenticated
   using (public.is_agency() and public.can_access_client(id))
   with check (public.is_agency() and public.can_access_client(id));
 
+drop policy if exists clients_delete on public.clients;
 create policy clients_delete on public.clients
   for delete to authenticated
   using (public.is_agency_admin());
@@ -155,35 +171,43 @@ create policy clients_delete on public.clients
 -- Lifecycle + projects
 -- ---------------------------------------------------------------------------
 
+drop policy if exists lifecycle_stages_select on public.lifecycle_stages;
 create policy lifecycle_stages_select on public.lifecycle_stages
   for select to authenticated using (true);
 
+drop policy if exists lifecycle_stages_write on public.lifecycle_stages;
 create policy lifecycle_stages_write on public.lifecycle_stages
   for all to authenticated
   using (public.is_agency_admin())
   with check (public.is_agency_admin());
 
+drop policy if exists projects_select on public.projects;
 create policy projects_select on public.projects
   for select to authenticated
   using (deleted_at is null and public.can_access_project(id));
 
+drop policy if exists projects_insert on public.projects;
 create policy projects_insert on public.projects
   for insert to authenticated
   with check (public.is_agency() and public.can_access_client(client_id));
 
+drop policy if exists projects_update on public.projects;
 create policy projects_update on public.projects
   for update to authenticated
   using (public.can_edit_project(id))
   with check (public.can_edit_project(id));
 
+drop policy if exists projects_delete on public.projects;
 create policy projects_delete on public.projects
   for delete to authenticated
   using (public.is_agency_admin());
 
+drop policy if exists project_members_select on public.project_members;
 create policy project_members_select on public.project_members
   for select to authenticated
   using (public.can_access_project(project_id));
 
+drop policy if exists project_members_write on public.project_members;
 create policy project_members_write on public.project_members
   for all to authenticated
   using (public.is_agency_manager() or public.can_edit_project(project_id))
@@ -202,12 +226,14 @@ begin
     'handover_documents'
   ]
   loop
+    execute format('drop policy if exists %1$s_select on public.%1$I', t);
     execute format($f$
       create policy %1$s_select on public.%1$I
         for select to authenticated
         using (public.can_access_project(project_id));
     $f$, t);
 
+    execute format('drop policy if exists %1$s_write on public.%1$I', t);
     execute format($f$
       create policy %1$s_write on public.%1$I
         for all to authenticated
@@ -223,24 +249,30 @@ end $$;
 -- Onboarding
 -- ---------------------------------------------------------------------------
 
+drop policy if exists onboarding_templates_select on public.onboarding_templates;
 create policy onboarding_templates_select on public.onboarding_templates
   for select to authenticated using (public.is_agency());
 
+drop policy if exists onboarding_templates_write on public.onboarding_templates;
 create policy onboarding_templates_write on public.onboarding_templates
   for all to authenticated
   using (public.is_agency_admin()) with check (public.is_agency_admin());
 
+drop policy if exists onboarding_template_sections_select on public.onboarding_template_sections;
 create policy onboarding_template_sections_select on public.onboarding_template_sections
   for select to authenticated using (public.is_agency());
 
+drop policy if exists onboarding_template_sections_write on public.onboarding_template_sections;
 create policy onboarding_template_sections_write on public.onboarding_template_sections
   for all to authenticated
   using (public.is_agency_admin()) with check (public.is_agency_admin());
 
+drop policy if exists onboarding_sections_select on public.onboarding_sections;
 create policy onboarding_sections_select on public.onboarding_sections
   for select to authenticated
   using (public.can_access_project(project_id));
 
+drop policy if exists onboarding_sections_agency_write on public.onboarding_sections;
 create policy onboarding_sections_agency_write on public.onboarding_sections
   for all to authenticated
   using (public.can_edit_project(project_id))
@@ -248,6 +280,7 @@ create policy onboarding_sections_agency_write on public.onboarding_sections
 
 -- A client may fill in their own project's sections, but only while the section
 -- is still theirs to edit — never once it is submitted or approved.
+drop policy if exists onboarding_sections_client_update on public.onboarding_sections;
 create policy onboarding_sections_client_update on public.onboarding_sections
   for update to authenticated
   using (
@@ -261,15 +294,18 @@ create policy onboarding_sections_client_update on public.onboarding_sections
     and status in ('in_progress', 'submitted')
   );
 
+drop policy if exists onboarding_items_select on public.onboarding_items;
 create policy onboarding_items_select on public.onboarding_items
   for select to authenticated
   using (public.can_access_project(project_id));
 
+drop policy if exists onboarding_items_agency_write on public.onboarding_items;
 create policy onboarding_items_agency_write on public.onboarding_items
   for all to authenticated
   using (public.can_edit_project(project_id))
   with check (public.can_edit_project(project_id));
 
+drop policy if exists onboarding_items_client_update on public.onboarding_items;
 create policy onboarding_items_client_update on public.onboarding_items
   for update to authenticated
   using (
@@ -287,16 +323,19 @@ create policy onboarding_items_client_update on public.onboarding_items
 -- Website content
 -- ---------------------------------------------------------------------------
 
+drop policy if exists website_pages_select on public.website_pages;
 create policy website_pages_select on public.website_pages
   for select to authenticated
   using (deleted_at is null and public.can_access_project(project_id));
 
+drop policy if exists website_pages_agency_write on public.website_pages;
 create policy website_pages_agency_write on public.website_pages
   for all to authenticated
   using (public.can_edit_project(project_id))
   with check (public.can_edit_project(project_id));
 
 -- Clients submit and revise page content until it is approved.
+drop policy if exists website_pages_client_update on public.website_pages;
 create policy website_pages_client_update on public.website_pages
   for update to authenticated
   using (
@@ -314,6 +353,7 @@ create policy website_pages_client_update on public.website_pages
 -- Files
 -- ---------------------------------------------------------------------------
 
+drop policy if exists files_select on public.files;
 create policy files_select on public.files
   for select to authenticated
   using (
@@ -326,6 +366,7 @@ create policy files_select on public.files
     and (public.is_agency() or is_client_visible)
   );
 
+drop policy if exists files_insert on public.files;
 create policy files_insert on public.files
   for insert to authenticated
   with check (
@@ -338,16 +379,19 @@ create policy files_insert on public.files
     and (public.is_agency() or (is_client_visible and approval_status = 'pending'))
   );
 
+drop policy if exists files_agency_update on public.files;
 create policy files_agency_update on public.files
   for update to authenticated
   using (project_id is not null and public.can_edit_project(project_id))
   with check (project_id is not null and public.can_edit_project(project_id));
 
+drop policy if exists files_owner_update on public.files;
 create policy files_owner_update on public.files
   for update to authenticated
   using (uploaded_by = auth.uid())
   with check (uploaded_by = auth.uid());
 
+drop policy if exists files_delete on public.files;
 create policy files_delete on public.files
   for delete to authenticated
   using (public.is_agency_manager());
@@ -356,6 +400,7 @@ create policy files_delete on public.files
 -- Tasks
 -- ---------------------------------------------------------------------------
 
+drop policy if exists tasks_select on public.tasks;
 create policy tasks_select on public.tasks
   for select to authenticated
   using (
@@ -364,12 +409,14 @@ create policy tasks_select on public.tasks
     and (public.is_agency() or is_client_visible)
   );
 
+drop policy if exists tasks_agency_write on public.tasks;
 create policy tasks_agency_write on public.tasks
   for all to authenticated
   using (public.can_edit_project(project_id))
   with check (public.can_edit_project(project_id));
 
 -- Clients may progress tasks that are explicitly their responsibility.
+drop policy if exists tasks_client_update on public.tasks;
 create policy tasks_client_update on public.tasks
   for update to authenticated
   using (
@@ -388,6 +435,7 @@ create policy tasks_client_update on public.tasks
 -- Comments — internal notes are invisible to clients at the database level
 -- ---------------------------------------------------------------------------
 
+drop policy if exists comments_select on public.comments;
 create policy comments_select on public.comments
   for select to authenticated
   using (
@@ -399,6 +447,7 @@ create policy comments_select on public.comments
     )
   );
 
+drop policy if exists comments_insert on public.comments;
 create policy comments_insert on public.comments
   for insert to authenticated
   with check (
@@ -411,11 +460,13 @@ create policy comments_insert on public.comments
     )
   );
 
+drop policy if exists comments_author_update on public.comments;
 create policy comments_author_update on public.comments
   for update to authenticated
   using (author_id = auth.uid() and deleted_at is null)
   with check (author_id = auth.uid() and (public.is_agency() or not is_internal));
 
+drop policy if exists comments_delete on public.comments;
 create policy comments_delete on public.comments
   for delete to authenticated
   using (author_id = auth.uid() or public.is_agency_admin());
@@ -424,6 +475,7 @@ create policy comments_delete on public.comments
 -- Approvals (append-only)
 -- ---------------------------------------------------------------------------
 
+drop policy if exists approvals_select on public.approvals;
 create policy approvals_select on public.approvals
   for select to authenticated
   using (
@@ -431,6 +483,7 @@ create policy approvals_select on public.approvals
     or (project_id is null and public.can_access_client(client_id))
   );
 
+drop policy if exists approvals_insert on public.approvals;
 create policy approvals_insert on public.approvals
   for insert to authenticated
   with check (
@@ -446,10 +499,12 @@ create policy approvals_insert on public.approvals
 -- Change requests
 -- ---------------------------------------------------------------------------
 
+drop policy if exists change_requests_select on public.change_requests;
 create policy change_requests_select on public.change_requests
   for select to authenticated
   using (deleted_at is null and public.can_access_project(project_id));
 
+drop policy if exists change_requests_client_insert on public.change_requests;
 create policy change_requests_client_insert on public.change_requests
   for insert to authenticated
   with check (
@@ -471,6 +526,7 @@ create policy change_requests_client_insert on public.change_requests
     )
   );
 
+drop policy if exists change_requests_agency_update on public.change_requests;
 create policy change_requests_agency_update on public.change_requests
   for all to authenticated
   using (public.can_edit_project(project_id))
@@ -484,6 +540,7 @@ create policy change_requests_agency_update on public.change_requests
 -- guard_change_request_transition() in migration 0012, because a policy sees
 -- either the old row (USING) or the new row (WITH CHECK) but never both, so it
 -- cannot express "from this state to that state".
+drop policy if exists change_requests_client_update on public.change_requests;
 create policy change_requests_client_update on public.change_requests
   for update to authenticated
   using (
@@ -498,6 +555,7 @@ create policy change_requests_client_update on public.change_requests
     and client_id = public.current_client_id()
   );
 
+drop policy if exists cra_select on public.change_request_approvals;
 create policy cra_select on public.change_request_approvals
   for select to authenticated
   using (exists (
@@ -505,6 +563,7 @@ create policy cra_select on public.change_request_approvals
     where cr.id = change_request_id and public.can_access_project(cr.project_id)
   ));
 
+drop policy if exists cra_agency_write on public.change_request_approvals;
 create policy cra_agency_write on public.change_request_approvals
   for all to authenticated
   using (exists (
@@ -517,6 +576,7 @@ create policy cra_agency_write on public.change_request_approvals
   ));
 
 -- The client's decision on a quote: they may only move a pending offer.
+drop policy if exists cra_client_decide on public.change_request_approvals;
 create policy cra_client_decide on public.change_request_approvals
   for update to authenticated
   using (
@@ -537,10 +597,12 @@ create policy cra_client_decide on public.change_request_approvals
 -- Support requests
 -- ---------------------------------------------------------------------------
 
+drop policy if exists support_requests_select on public.support_requests;
 create policy support_requests_select on public.support_requests
   for select to authenticated
   using (deleted_at is null and public.can_access_client(client_id));
 
+drop policy if exists support_requests_insert on public.support_requests;
 create policy support_requests_insert on public.support_requests
   for insert to authenticated
   with check (
@@ -558,11 +620,13 @@ create policy support_requests_insert on public.support_requests
     )
   );
 
+drop policy if exists support_requests_agency_write on public.support_requests;
 create policy support_requests_agency_write on public.support_requests
   for all to authenticated
   using (public.is_agency() and public.can_access_client(client_id))
   with check (public.is_agency() and public.can_access_client(client_id));
 
+drop policy if exists support_requests_client_update on public.support_requests;
 create policy support_requests_client_update on public.support_requests
   for update to authenticated
   using (
@@ -581,33 +645,40 @@ create policy support_requests_client_update on public.support_requests
 -- ---------------------------------------------------------------------------
 
 -- Clients see the tiers the agency has published; agency sees everything.
+drop policy if exists maintenance_plans_select on public.maintenance_plans;
 create policy maintenance_plans_select on public.maintenance_plans
   for select to authenticated
   using (public.is_agency() or (is_active and is_public));
 
+drop policy if exists maintenance_plans_write on public.maintenance_plans;
 create policy maintenance_plans_write on public.maintenance_plans
   for all to authenticated
   using (public.is_agency_admin()) with check (public.is_agency_admin());
 
+drop policy if exists subscriptions_select on public.maintenance_subscriptions;
 create policy subscriptions_select on public.maintenance_subscriptions
   for select to authenticated
   using (deleted_at is null and public.can_access_client(client_id));
 
 -- Clients never write to a subscription. They raise a plan request instead.
+drop policy if exists subscriptions_write on public.maintenance_subscriptions;
 create policy subscriptions_write on public.maintenance_subscriptions
   for all to authenticated
   using (public.is_agency() and public.can_access_client(client_id))
   with check (public.is_agency() and public.can_access_client(client_id));
 
+drop policy if exists usage_select on public.maintenance_usage;
 create policy usage_select on public.maintenance_usage
   for select to authenticated
   using (public.can_access_client(client_id));
 
+drop policy if exists usage_write on public.maintenance_usage;
 create policy usage_write on public.maintenance_usage
   for all to authenticated
   using (public.is_agency() and public.can_access_client(client_id))
   with check (public.is_agency() and public.can_access_client(client_id));
 
+drop policy if exists maintenance_events_select on public.maintenance_events;
 create policy maintenance_events_select on public.maintenance_events
   for select to authenticated
   using (exists (
@@ -615,15 +686,18 @@ create policy maintenance_events_select on public.maintenance_events
     where s.id = subscription_id and public.can_access_client(s.client_id)
   ));
 
+drop policy if exists maintenance_events_insert on public.maintenance_events;
 create policy maintenance_events_insert on public.maintenance_events
   for insert to authenticated
   with check (public.is_agency());
 -- No UPDATE/DELETE: subscription history is immutable.
 
+drop policy if exists plan_requests_select on public.maintenance_plan_requests;
 create policy plan_requests_select on public.maintenance_plan_requests
   for select to authenticated
   using (public.can_access_client(client_id));
 
+drop policy if exists plan_requests_client_insert on public.maintenance_plan_requests;
 create policy plan_requests_client_insert on public.maintenance_plan_requests
   for insert to authenticated
   with check (
@@ -632,12 +706,14 @@ create policy plan_requests_client_insert on public.maintenance_plan_requests
     and (public.is_agency() or (client_id = public.current_client_id() and status = 'pending'))
   );
 
+drop policy if exists plan_requests_agency_write on public.maintenance_plan_requests;
 create policy plan_requests_agency_write on public.maintenance_plan_requests
   for all to authenticated
   using (public.is_agency() and public.can_access_client(client_id))
   with check (public.is_agency() and public.can_access_client(client_id));
 
 -- A client may withdraw their own pending request, nothing more.
+drop policy if exists plan_requests_client_withdraw on public.maintenance_plan_requests;
 create policy plan_requests_client_withdraw on public.maintenance_plan_requests
   for update to authenticated
   using (
@@ -652,9 +728,11 @@ create policy plan_requests_client_withdraw on public.maintenance_plan_requests
   );
 
 -- Reminders are an internal operations tool.
+drop policy if exists reminders_select on public.renewal_reminders;
 create policy reminders_select on public.renewal_reminders
   for select to authenticated using (public.is_agency());
 
+drop policy if exists reminders_write on public.renewal_reminders;
 create policy reminders_write on public.renewal_reminders
   for all to authenticated
   using (public.is_agency()) with check (public.is_agency());
@@ -666,6 +744,7 @@ create policy reminders_write on public.renewal_reminders
 -- Replace the generic handover_documents read policy with one that honours
 -- visible_to_client.
 drop policy if exists handover_documents_select on public.handover_documents;
+drop policy if exists handover_documents_select on public.handover_documents;
 create policy handover_documents_select on public.handover_documents
   for select to authenticated
   using (
@@ -673,18 +752,22 @@ create policy handover_documents_select on public.handover_documents
     and (public.is_agency() or visible_to_client)
   );
 
+drop policy if exists handover_template_items_select on public.handover_template_items;
 create policy handover_template_items_select on public.handover_template_items
   for select to authenticated using (public.is_agency());
 
+drop policy if exists handover_template_items_write on public.handover_template_items;
 create policy handover_template_items_write on public.handover_template_items
   for all to authenticated
   using (public.is_agency_admin()) with check (public.is_agency_admin());
 
+drop policy if exists client_acceptances_select on public.client_acceptances;
 create policy client_acceptances_select on public.client_acceptances
   for select to authenticated
   using (public.can_access_project(project_id));
 
 -- Only a client_owner may formally accept, and only for their own project.
+drop policy if exists client_acceptances_insert on public.client_acceptances;
 create policy client_acceptances_insert on public.client_acceptances
   for insert to authenticated
   with check (
@@ -698,21 +781,26 @@ create policy client_acceptances_insert on public.client_acceptances
 -- System tables
 -- ---------------------------------------------------------------------------
 
+drop policy if exists notifications_select on public.notifications;
 create policy notifications_select on public.notifications
   for select to authenticated using (user_id = auth.uid());
 
 -- Recipients may only mark their own notifications read.
+drop policy if exists notifications_update on public.notifications;
 create policy notifications_update on public.notifications
   for update to authenticated
   using (user_id = auth.uid()) with check (user_id = auth.uid());
 
+drop policy if exists notifications_insert on public.notifications;
 create policy notifications_insert on public.notifications
   for insert to authenticated
   with check (public.is_agency() or user_id = auth.uid());
 
+drop policy if exists notifications_delete on public.notifications;
 create policy notifications_delete on public.notifications
   for delete to authenticated using (user_id = auth.uid());
 
+drop policy if exists activity_select on public.activity_logs;
 create policy activity_select on public.activity_logs
   for select to authenticated
   using (
@@ -723,6 +811,7 @@ create policy activity_select on public.activity_logs
     and (public.is_agency() or visibility = 'client')
   );
 
+drop policy if exists activity_insert on public.activity_logs;
 create policy activity_insert on public.activity_logs
   for insert to authenticated
   with check (
@@ -731,6 +820,7 @@ create policy activity_insert on public.activity_logs
   );
 -- No UPDATE/DELETE: the activity feed is permanent.
 
+drop policy if exists audit_select on public.audit_logs;
 create policy audit_select on public.audit_logs
   for select to authenticated using (public.is_agency_admin());
 -- No INSERT/UPDATE/DELETE policies at all.

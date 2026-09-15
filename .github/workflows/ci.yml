@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Types, lint and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      # The app renders every authenticated page at request time, so a build
+      # needs no real credentials — placeholders are enough to prove it compiles.
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+
+  database:
+    name: Schema and Row Level Security
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the Postgres client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      # Applies every migration twice, then the generated single-file
+      # setup.sql twice, then 27 Row Level Security assertions covering tenant
+      # isolation, internal-comment visibility, cross-tenant writes, column
+      # guards, state transitions, privilege escalation and audit immutability.
+      - name: Verify the schema and security policies
+        run: ./scripts/verify-schema.sh localhost 5432
+        env:
+          PGUSER: postgres
+          PGPASSWORD: postgres
+
+      # A stale setup.sql would silently ship a schema that does not match the
+      # migrations, so the build output must be identical to what is committed.
+      - name: Check supabase/setup.sql is up to date
+        run: |
+          node scripts/build-setup-sql.mjs
+          if ! git diff --quiet -- supabase/setup.sql; then
+            echo "::error file=supabase/setup.sql::setup.sql is out of date."
+            echo "Run: node scripts/build-setup-sql.mjs   and commit the result."
+            git diff --stat -- supabase/setup.sql
+            exit 1
+          fi
+          echo "setup.sql matches the migrations"

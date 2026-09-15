@@ -15,7 +15,7 @@ $$;
 
 -- --- organisations -----------------------------------------------------------
 -- Tenancy root. Exactly one row with kind = 'agency'; one row per client company.
-create table public.organisations (
+create table if not exists public.organisations (
   id               uuid primary key default gen_random_uuid(),
   kind             public.organisation_kind not null,
   name             text not null check (length(trim(name)) between 1 and 200),
@@ -25,19 +25,21 @@ create table public.organisations (
   deleted_at       timestamptz
 );
 
-create unique index organisations_single_agency_idx
+create unique index if not exists organisations_single_agency_idx
   on public.organisations ((kind))
   where kind = 'agency' and deleted_at is null;
 
-create index organisations_kind_idx on public.organisations (kind) where deleted_at is null;
+create index if not exists organisations_kind_idx
+  on public.organisations (kind) where deleted_at is null;
 
+drop trigger if exists organisations_set_updated_at on public.organisations;
 create trigger organisations_set_updated_at
   before update on public.organisations
   for each row execute function public.set_updated_at();
 
 -- --- users -------------------------------------------------------------------
 -- Profile mirror of auth.users. Created by the handle_new_user trigger.
-create table public.users (
+create table if not exists public.users (
   id               uuid primary key references auth.users (id) on delete cascade,
   email            citext not null unique,
   full_name        text not null default '',
@@ -53,19 +55,23 @@ create table public.users (
   deleted_at       timestamptz
 );
 
-create index users_organisation_idx on public.users (organisation_id) where deleted_at is null;
-create index users_role_idx on public.users (role) where deleted_at is null;
-create index users_active_agency_idx on public.users (role)
+create index if not exists users_organisation_idx
+  on public.users (organisation_id) where deleted_at is null;
+create index if not exists users_role_idx
+  on public.users (role) where deleted_at is null;
+create index if not exists users_active_agency_idx
+  on public.users (role)
   where is_active and deleted_at is null
     and role not in ('client_owner', 'client_member');
 
+drop trigger if exists users_set_updated_at on public.users;
 create trigger users_set_updated_at
   before update on public.users
   for each row execute function public.set_updated_at();
 
 -- --- agency_settings ---------------------------------------------------------
 -- Singleton configuration row. `id` is pinned so there can only ever be one.
-create table public.agency_settings (
+create table if not exists public.agency_settings (
   id                            boolean primary key default true check (id),
   agency_name                   text not null default 'Northpoint Digital',
   tagline                       text not null default 'Web design, development and support',
@@ -87,13 +93,14 @@ create table public.agency_settings (
   updated_at                    timestamptz not null default now()
 );
 
+drop trigger if exists agency_settings_set_updated_at on public.agency_settings;
 create trigger agency_settings_set_updated_at
   before update on public.agency_settings
   for each row execute function public.set_updated_at();
 
 -- --- invitations -------------------------------------------------------------
 -- The only route to an account. There is no public signup.
-create table public.invitations (
+create table if not exists public.invitations (
   id               uuid primary key default gen_random_uuid(),
   email            citext not null,
   full_name        text not null default '',
@@ -111,12 +118,14 @@ create table public.invitations (
 );
 
 -- One live invitation per email address.
-create unique index invitations_pending_email_idx
+create unique index if not exists invitations_pending_email_idx
   on public.invitations (email)
   where accepted_at is null and revoked_at is null;
 
-create index invitations_organisation_idx on public.invitations (organisation_id);
+create index if not exists invitations_organisation_idx
+  on public.invitations (organisation_id);
 
+drop trigger if exists invitations_set_updated_at on public.invitations;
 create trigger invitations_set_updated_at
   before update on public.invitations
   for each row execute function public.set_updated_at();

@@ -1,0 +1,83 @@
+name: Seed demo data
+
+# Creates the logins and a realistic book of work in your Supabase project.
+# Run this once after the schema is in place.
+#
+# Needs two secrets:
+#   NEXT_PUBLIC_SUPABASE_URL     Project Settings -> API -> Project URL
+#   SUPABASE_SERVICE_ROLE_KEY    Project Settings -> API -> service_role secret
+#
+# The service role key is only ever used here and by the server; it never
+# reaches a browser.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'What to create'
+        required: true
+        default: 'demo'
+        type: choice
+        options:
+          - demo
+          - demo-reset
+          - admin-only
+      admin_email:
+        description: 'Administrator email (admin-only mode; also becomes the first login)'
+        required: false
+        default: ''
+      demo_password:
+        description: 'Password for the created accounts (leave blank for the default)'
+        required: false
+        default: ''
+
+jobs:
+  seed:
+    name: Seed
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the secrets are present
+        run: |
+          missing=0
+          if [ -z "${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" ]; then
+            echo "::error::NEXT_PUBLIC_SUPABASE_URL is not set."; missing=1
+          fi
+          if [ -z "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" ]; then
+            echo "::error::SUPABASE_SERVICE_ROLE_KEY is not set."; missing=1
+          fi
+          if [ "$missing" = "1" ]; then
+            echo "Add them under Settings -> Secrets and variables -> Actions."
+            echo "See docs/GITHUB-SETUP.md."
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Seed
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          DEMO_PASSWORD: ${{ inputs.demo_password }}
+        run: |
+          args=""
+          case "${{ inputs.mode }}" in
+            demo-reset) args="--reset" ;;
+            admin-only) args="--admin-only" ;;
+          esac
+
+          if [ -n "${{ inputs.admin_email }}" ]; then
+            args="$args --email ${{ inputs.admin_email }}"
+          fi
+
+          node scripts/seed-demo.mjs $args
+
+      - name: Reminder
+        run: |
+          echo "::notice::Accounts created. Change the password before this is reachable by anyone."

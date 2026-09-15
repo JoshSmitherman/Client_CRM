@@ -4,7 +4,7 @@
 
 -- --- maintenance_plans -------------------------------------------------------
 -- Fully configurable. No tier is hard-coded anywhere in the application.
-create table public.maintenance_plans (
+create table if not exists public.maintenance_plans (
   id                        uuid primary key default gen_random_uuid(),
   name                      text not null,
   slug                      text not null unique check (slug ~ '^[a-z0-9][a-z0-9-]*$'),
@@ -28,15 +28,17 @@ create table public.maintenance_plans (
   updated_at                timestamptz not null default now()
 );
 
-create index maintenance_plans_active_idx on public.maintenance_plans (position)
+create index if not exists maintenance_plans_active_idx
+  on public.maintenance_plans (position)
   where is_active;
 
+drop trigger if exists maintenance_plans_set_updated_at on public.maintenance_plans;
 create trigger maintenance_plans_set_updated_at
   before update on public.maintenance_plans
   for each row execute function public.set_updated_at();
 
 -- --- maintenance_subscriptions ----------------------------------------------
-create table public.maintenance_subscriptions (
+create table if not exists public.maintenance_subscriptions (
   id                        uuid primary key default gen_random_uuid(),
   client_id                 uuid not null references public.clients (id) on delete cascade,
   project_id                uuid references public.projects (id) on delete set null,
@@ -62,29 +64,37 @@ create table public.maintenance_subscriptions (
   constraint subscriptions_renewal_after_start check (renewal_date >= start_date)
 );
 
-create index subscriptions_client_idx on public.maintenance_subscriptions (client_id)
+create index if not exists subscriptions_client_idx
+  on public.maintenance_subscriptions (client_id)
   where deleted_at is null;
-create index subscriptions_project_idx on public.maintenance_subscriptions (project_id)
+create index if not exists subscriptions_project_idx
+  on public.maintenance_subscriptions (project_id)
   where deleted_at is null;
-create index subscriptions_renewal_idx on public.maintenance_subscriptions (renewal_date)
+create index if not exists subscriptions_renewal_idx
+  on public.maintenance_subscriptions (renewal_date)
   where deleted_at is null and status in ('trial', 'active', 'renewal_due');
 
+drop trigger if exists maintenance_subscriptions_set_updated_at on public.maintenance_subscriptions;
 create trigger maintenance_subscriptions_set_updated_at
   before update on public.maintenance_subscriptions
   for each row execute function public.set_updated_at();
 
 -- Deferred FKs from 0006.
-alter table public.change_requests
-  add constraint change_requests_subscription_id_fkey
-  foreign key (subscription_id) references public.maintenance_subscriptions (id) on delete set null;
+do $$ begin
+  alter table public.change_requests
+    add constraint change_requests_subscription_id_fkey
+    foreign key (subscription_id) references public.maintenance_subscriptions (id) on delete set null;
+exception when duplicate_object then null; end $$;
 
-alter table public.support_requests
-  add constraint support_requests_subscription_id_fkey
-  foreign key (subscription_id) references public.maintenance_subscriptions (id) on delete set null;
+do $$ begin
+  alter table public.support_requests
+    add constraint support_requests_subscription_id_fkey
+    foreign key (subscription_id) references public.maintenance_subscriptions (id) on delete set null;
+exception when duplicate_object then null; end $$;
 
 -- --- maintenance_usage -------------------------------------------------------
 -- Minutes, not decimal hours, so "1 hour 20 minutes" is exact.
-create table public.maintenance_usage (
+create table if not exists public.maintenance_usage (
   id                    uuid primary key default gen_random_uuid(),
   subscription_id       uuid not null references public.maintenance_subscriptions (id) on delete cascade,
   client_id             uuid not null references public.clients (id) on delete cascade,
@@ -103,17 +113,19 @@ create table public.maintenance_usage (
   constraint usage_period_valid check (period_end >= period_start)
 );
 
-create index usage_subscription_period_idx
+create index if not exists usage_subscription_period_idx
   on public.maintenance_usage (subscription_id, period_start desc);
-create index usage_change_request_idx on public.maintenance_usage (change_request_id);
-create index usage_support_request_idx on public.maintenance_usage (support_request_id);
+create index if not exists usage_change_request_idx
+  on public.maintenance_usage (change_request_id);
+create index if not exists usage_support_request_idx
+  on public.maintenance_usage (support_request_id);
 
 comment on column public.maintenance_usage.minutes is
   'May be negative when correcting a previous over-recording (is_manual_adjustment = true).';
 
 -- --- maintenance_events ------------------------------------------------------
 -- Immutable subscription history.
-create table public.maintenance_events (
+create table if not exists public.maintenance_events (
   id               uuid primary key default gen_random_uuid(),
   subscription_id  uuid not null references public.maintenance_subscriptions (id) on delete cascade,
   event_type       public.maintenance_event_type not null,
@@ -125,12 +137,12 @@ create table public.maintenance_events (
   created_at       timestamptz not null default now()
 );
 
-create index maintenance_events_subscription_idx
+create index if not exists maintenance_events_subscription_idx
   on public.maintenance_events (subscription_id, created_at desc);
 
 -- --- maintenance_plan_requests -----------------------------------------------
 -- Clients request; the agency decides. A subscription is never changed directly.
-create table public.maintenance_plan_requests (
+create table if not exists public.maintenance_plan_requests (
   id                uuid primary key default gen_random_uuid(),
   client_id         uuid not null references public.clients (id) on delete cascade,
   subscription_id   uuid references public.maintenance_subscriptions (id) on delete cascade,
@@ -146,16 +158,19 @@ create table public.maintenance_plan_requests (
   updated_at        timestamptz not null default now()
 );
 
-create index plan_requests_client_idx on public.maintenance_plan_requests (client_id, status);
-create index plan_requests_pending_idx on public.maintenance_plan_requests (created_at desc)
+create index if not exists plan_requests_client_idx
+  on public.maintenance_plan_requests (client_id, status);
+create index if not exists plan_requests_pending_idx
+  on public.maintenance_plan_requests (created_at desc)
   where status = 'pending';
 
+drop trigger if exists maintenance_plan_requests_set_updated_at on public.maintenance_plan_requests;
 create trigger maintenance_plan_requests_set_updated_at
   before update on public.maintenance_plan_requests
   for each row execute function public.set_updated_at();
 
 -- --- renewal_reminders -------------------------------------------------------
-create table public.renewal_reminders (
+create table if not exists public.renewal_reminders (
   id               uuid primary key default gen_random_uuid(),
   client_id        uuid not null references public.clients (id) on delete cascade,
   subscription_id  uuid references public.maintenance_subscriptions (id) on delete cascade,
@@ -177,11 +192,15 @@ create table public.renewal_reminders (
   updated_at       timestamptz not null default now()
 );
 
-create index reminders_due_idx on public.renewal_reminders (due_date)
+create index if not exists reminders_due_idx
+  on public.renewal_reminders (due_date)
   where status in ('scheduled', 'due');
-create index reminders_client_idx on public.renewal_reminders (client_id);
-create index reminders_subscription_idx on public.renewal_reminders (subscription_id);
+create index if not exists reminders_client_idx
+  on public.renewal_reminders (client_id);
+create index if not exists reminders_subscription_idx
+  on public.renewal_reminders (subscription_id);
 
+drop trigger if exists renewal_reminders_set_updated_at on public.renewal_reminders;
 create trigger renewal_reminders_set_updated_at
   before update on public.renewal_reminders
   for each row execute function public.set_updated_at();

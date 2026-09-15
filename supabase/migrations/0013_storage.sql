@@ -74,20 +74,24 @@ begin
 end;
 $$;
 
+drop policy if exists "project files are readable by authorised users" on storage.objects;
 create policy "project files are readable by authorised users"
   on storage.objects for select to authenticated
   using (bucket_id = 'project-files' and public.storage_object_allowed(name, false));
 
+drop policy if exists "project files are writable by authorised users" on storage.objects;
 create policy "project files are writable by authorised users"
   on storage.objects for insert to authenticated
   with check (bucket_id = 'project-files' and public.storage_object_allowed(name, true));
 
 -- Replacing an object requires edit rights on the owning project.
+drop policy if exists "project files are updatable by their owner or the agency" on storage.objects;
 create policy "project files are updatable by their owner or the agency"
   on storage.objects for update to authenticated
   using (bucket_id = 'project-files' and (owner = auth.uid() or public.is_agency()))
   with check (bucket_id = 'project-files' and public.storage_object_allowed(name, true));
 
+drop policy if exists "project files are removable by the agency or uploader" on storage.objects;
 create policy "project files are removable by the agency or uploader"
   on storage.objects for delete to authenticated
   using (

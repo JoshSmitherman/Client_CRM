@@ -3,7 +3,7 @@
 -- ===========================================================================
 
 -- --- files -------------------------------------------------------------------
-create table public.files (
+create table if not exists public.files (
   id                      uuid primary key default gen_random_uuid(),
   project_id              uuid references public.projects (id) on delete cascade,
   client_id               uuid not null references public.clients (id) on delete cascade,
@@ -31,23 +31,31 @@ create table public.files (
   deleted_at              timestamptz
 );
 
-create index files_project_idx on public.files (project_id, created_at desc) where deleted_at is null;
-create index files_client_idx on public.files (client_id) where deleted_at is null;
-create index files_page_idx on public.files (website_page_id) where deleted_at is null;
-create index files_section_idx on public.files (onboarding_section_id) where deleted_at is null;
-create index files_approval_idx on public.files (approval_status) where deleted_at is null;
+create index if not exists files_project_idx
+  on public.files (project_id, created_at desc) where deleted_at is null;
+create index if not exists files_client_idx
+  on public.files (client_id) where deleted_at is null;
+create index if not exists files_page_idx
+  on public.files (website_page_id) where deleted_at is null;
+create index if not exists files_section_idx
+  on public.files (onboarding_section_id) where deleted_at is null;
+create index if not exists files_approval_idx
+  on public.files (approval_status) where deleted_at is null;
 
+drop trigger if exists files_set_updated_at on public.files;
 create trigger files_set_updated_at
   before update on public.files
   for each row execute function public.set_updated_at();
 
 -- Deferred FK from 0004.
-alter table public.onboarding_items
-  add constraint onboarding_items_file_id_fkey
-  foreign key (file_id) references public.files (id) on delete set null;
+do $$ begin
+  alter table public.onboarding_items
+    add constraint onboarding_items_file_id_fkey
+    foreign key (file_id) references public.files (id) on delete set null;
+exception when duplicate_object then null; end $$;
 
 -- --- tasks -------------------------------------------------------------------
-create table public.tasks (
+create table if not exists public.tasks (
   id                      uuid primary key default gen_random_uuid(),
   project_id              uuid not null references public.projects (id) on delete cascade,
   title                   text not null check (length(trim(title)) between 1 and 300),
@@ -71,12 +79,17 @@ create table public.tasks (
   deleted_at              timestamptz
 );
 
-create index tasks_project_idx on public.tasks (project_id, status) where deleted_at is null;
-create index tasks_assignee_idx on public.tasks (assignee_id) where deleted_at is null;
-create index tasks_overdue_idx on public.tasks (due_date)
+create index if not exists tasks_project_idx
+  on public.tasks (project_id, status) where deleted_at is null;
+create index if not exists tasks_assignee_idx
+  on public.tasks (assignee_id) where deleted_at is null;
+create index if not exists tasks_overdue_idx
+  on public.tasks (due_date)
   where status <> 'complete' and deleted_at is null;
-create index tasks_section_idx on public.tasks (onboarding_section_id) where deleted_at is null;
+create index if not exists tasks_section_idx
+  on public.tasks (onboarding_section_id) where deleted_at is null;
 
+drop trigger if exists tasks_set_updated_at on public.tasks;
 create trigger tasks_set_updated_at
   before update on public.tasks
   for each row execute function public.set_updated_at();
@@ -84,7 +97,7 @@ create trigger tasks_set_updated_at
 -- --- comments ----------------------------------------------------------------
 -- Polymorphic threads. `project_id` is denormalised purely so RLS can be a
 -- cheap index lookup rather than a recursive join per entity type.
-create table public.comments (
+create table if not exists public.comments (
   id            uuid primary key default gen_random_uuid(),
   entity_type   public.comment_entity not null,
   entity_id     uuid not null,
@@ -103,19 +116,23 @@ create table public.comments (
   constraint comments_no_self_parent check (parent_id is null or parent_id <> id)
 );
 
-create index comments_entity_idx on public.comments (entity_type, entity_id, created_at)
+create index if not exists comments_entity_idx
+  on public.comments (entity_type, entity_id, created_at)
   where deleted_at is null;
-create index comments_project_idx on public.comments (project_id, created_at desc)
+create index if not exists comments_project_idx
+  on public.comments (project_id, created_at desc)
   where deleted_at is null;
-create index comments_parent_idx on public.comments (parent_id) where deleted_at is null;
+create index if not exists comments_parent_idx
+  on public.comments (parent_id) where deleted_at is null;
 
+drop trigger if exists comments_set_updated_at on public.comments;
 create trigger comments_set_updated_at
   before update on public.comments
   for each row execute function public.set_updated_at();
 
 -- --- approvals ---------------------------------------------------------------
 -- Append-only record of approve / reject / request-changes decisions.
-create table public.approvals (
+create table if not exists public.approvals (
   id               uuid primary key default gen_random_uuid(),
   project_id       uuid references public.projects (id) on delete cascade,
   client_id        uuid references public.clients (id) on delete cascade,
@@ -133,5 +150,7 @@ create table public.approvals (
   )
 );
 
-create index approvals_entity_idx on public.approvals (entity_type, entity_id, created_at desc);
-create index approvals_project_idx on public.approvals (project_id, created_at desc);
+create index if not exists approvals_entity_idx
+  on public.approvals (entity_type, entity_id, created_at desc);
+create index if not exists approvals_project_idx
+  on public.approvals (project_id, created_at desc);

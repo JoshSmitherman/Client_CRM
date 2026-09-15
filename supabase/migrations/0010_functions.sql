@@ -275,6 +275,7 @@ end;
 $$;
 
 drop trigger if exists on_auth_user_created on auth.users;
+drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
@@ -566,22 +567,27 @@ begin
 end;
 $$;
 
+drop trigger if exists onboarding_sections_progress on public.onboarding_sections;
 create trigger onboarding_sections_progress
   after insert or update of status or delete on public.onboarding_sections
   for each row execute function public.trigger_recalculate_progress();
 
+drop trigger if exists project_milestones_progress on public.project_milestones;
 create trigger project_milestones_progress
   after insert or update of completed_at or delete on public.project_milestones
   for each row execute function public.trigger_recalculate_progress();
 
+drop trigger if exists website_pages_progress on public.website_pages;
 create trigger website_pages_progress
   after insert or update of status, deleted_at or delete on public.website_pages
   for each row execute function public.trigger_recalculate_progress();
 
+drop trigger if exists tasks_progress on public.tasks;
 create trigger tasks_progress
   after insert or update of status, work_stream, deleted_at or delete on public.tasks
   for each row execute function public.trigger_recalculate_progress();
 
+drop trigger if exists handover_items_progress on public.handover_items;
 create trigger handover_items_progress
   after insert or update of status or delete on public.handover_items
   for each row execute function public.trigger_recalculate_progress();
@@ -605,6 +611,7 @@ begin
 end;
 $$;
 
+drop trigger if exists tasks_stamp_completion on public.tasks;
 create trigger tasks_stamp_completion
   before update on public.tasks
   for each row execute function public.stamp_task_completion();

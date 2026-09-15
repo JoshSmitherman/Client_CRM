@@ -1,0 +1,55 @@
+name: Deploy to Vercel
+
+# Optional. Vercel's own GitHub integration is simpler — connect the repo at
+# vercel.com/new and it deploys on every push with no secrets here at all.
+#
+# Use this workflow instead if you would rather drive deployment from Actions.
+# It needs three secrets:
+#   VERCEL_TOKEN        vercel.com/account/tokens
+#   VERCEL_ORG_ID       .vercel/project.json after running `vercel link`
+#   VERCEL_PROJECT_ID   .vercel/project.json after running `vercel link`
+#
+# Environment variables for the app itself (the Supabase keys) are set in the
+# Vercel dashboard, not here.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Skip quietly rather than failing the run for anyone using Vercel's
+      # own GitHub integration, where these secrets do not exist.
+      - name: Check for a Vercel token
+        id: check
+        run: |
+          if [ -z "${{ secrets.VERCEL_TOKEN }}" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::VERCEL_TOKEN is not set — skipping. This is fine if you use Vercel's GitHub integration."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.check.outputs.configured == 'true'
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Deploy
+        if: steps.check.outputs.configured == 'true'
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          npx vercel@latest pull --yes --environment=production \
+            --token="${{ secrets.VERCEL_TOKEN }}"
+          npx vercel@latest build --prod --token="${{ secrets.VERCEL_TOKEN }}"
+          npx vercel@latest deploy --prebuilt --prod \
+            --token="${{ secrets.VERCEL_TOKEN }}"
