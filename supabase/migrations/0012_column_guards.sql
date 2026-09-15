@@ -255,3 +255,52 @@ $$;
 create trigger plan_requests_guard_columns
   before update on public.maintenance_plan_requests
   for each row execute function public.guard_plan_request_columns();
+
+-- --- change_requests: legal client state transitions ------------------------
+-- A policy cannot compare the old and new row, so the transition map lives
+-- here. Without it a client could jump their own request straight to
+-- "approved" and skip triage.
+create or replace function public.guard_change_request_transition()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_allowed public.change_request_status[];
+begin
+  if public.is_service_context() or public.is_agency() then
+    return new;
+  end if;
+
+  if new.status = old.status then
+    return new;
+  end if;
+
+  v_allowed := case old.status
+    -- Before triage: withdraw it, nothing else.
+    when 'submitted' then array['cancelled']::public.change_request_status[]
+    -- Answering a request for more information re-submits it.
+    when 'more_information_required' then
+      array['submitted', 'cancelled']::public.change_request_status[]
+    -- Deciding on a quotation.
+    when 'awaiting_client_approval' then
+      array['approved', 'rejected', 'more_information_required']::public.change_request_status[]
+    -- Reviewing finished work: accept it, or send it back.
+    when 'client_review' then
+      array['completed', 'more_information_required']::public.change_request_status[]
+    else array[]::public.change_request_status[]
+  end;
+
+  if not (new.status = any (v_allowed)) then
+    raise exception 'A change request cannot be moved from % to % by a client',
+      old.status, new.status;
+  end if;
+
+  return new;
+end;
+$$;
+
+create trigger change_requests_guard_transition
+  before update of status on public.change_requests
+  for each row execute function public.guard_change_request_transition();

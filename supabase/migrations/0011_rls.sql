@@ -476,18 +476,26 @@ create policy change_requests_agency_update on public.change_requests
   using (public.can_edit_project(project_id))
   with check (public.can_edit_project(project_id));
 
--- Clients may correct their own request only before triage begins.
+-- Clients act on their own request at the points the workflow gives them:
+-- correcting it before triage, answering a request for more information,
+-- deciding on a quotation, and accepting the finished work.
+--
+-- RLS decides WHICH ROWS; which STATE TRANSITIONS are legal is enforced by
+-- guard_change_request_transition() in migration 0012, because a policy sees
+-- either the old row (USING) or the new row (WITH CHECK) but never both, so it
+-- cannot express "from this state to that state".
 create policy change_requests_client_update on public.change_requests
   for update to authenticated
   using (
     public.is_client()
     and client_id = public.current_client_id()
-    and status in ('submitted', 'more_information_required')
+    and status in (
+      'submitted', 'more_information_required', 'awaiting_client_approval', 'client_review'
+    )
   )
   with check (
     public.is_client()
     and client_id = public.current_client_id()
-    and status in ('submitted', 'more_information_required', 'cancelled', 'awaiting_review')
   );
 
 create policy cra_select on public.change_request_approvals

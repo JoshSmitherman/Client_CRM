@@ -190,6 +190,64 @@ exception
 end $$;
 
 -- --------------------------------------------------------------------------
+-- 4b. Change request state transitions
+-- --------------------------------------------------------------------------
+\echo '--- change request transitions ---'
+
+-- A client must not be able to skip triage by approving their own request.
+do $$
+begin
+  update public.change_requests set status = 'approved'
+  where id = 'f1111111-0000-4000-8000-000000000001';
+  raise exception 'RLS ASSERTION FAILED: client skipped triage by self-approving';
+exception
+  when raise_exception then
+    if sqlerrm like 'RLS ASSERTION FAILED%' then raise;
+    end if;
+    raise notice '  pass: client cannot jump submitted -> approved';
+end $$;
+
+-- Withdrawing their own untriaged request is allowed.
+update public.change_requests set status = 'cancelled'
+where id = 'f1111111-0000-4000-8000-000000000001';
+
+select pg_temp.assert(
+  (select status from public.change_requests where id = 'f1111111-0000-4000-8000-000000000001')
+    = 'cancelled',
+  'client can cancel their own untriaged request');
+
+-- Put the request in front of the client as the agency would, then check the
+-- decision they are entitled to make. The claim is cleared first: the guards
+-- key off auth.uid(), so leaving it set would make even the superuser look
+-- like the client.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+update public.change_requests set status = 'awaiting_client_approval'
+where id = 'f1111111-0000-4000-8000-000000000001';
+set role authenticated;
+select set_config('request.jwt.claim.sub', '33333333-3333-4333-8333-333333333333', false);
+
+update public.change_requests set status = 'approved'
+where id = 'f1111111-0000-4000-8000-000000000001';
+
+select pg_temp.assert(
+  (select status from public.change_requests where id = 'f1111111-0000-4000-8000-000000000001')
+    = 'approved',
+  'client can approve a quotation put to them');
+
+-- ...but cannot then declare the work finished. An 'approved' row falls outside
+-- the client UPDATE policy entirely, so RLS filters it out and the statement
+-- affects no rows rather than raising — which is why this is asserted on the
+-- resulting state rather than on an exception.
+update public.change_requests set status = 'completed'
+where id = 'f1111111-0000-4000-8000-000000000001';
+
+select pg_temp.assert(
+  (select status from public.change_requests where id = 'f1111111-0000-4000-8000-000000000001')
+    = 'approved',
+  'client cannot mark an approved request completed');
+
+-- --------------------------------------------------------------------------
 -- 5. Privilege escalation is impossible
 -- --------------------------------------------------------------------------
 \echo '--- privilege escalation ---'
@@ -236,6 +294,7 @@ select pg_temp.assert(
   'developer with no membership sees no projects');
 
 reset role;
+select set_config('request.jwt.claim.sub', '', false);
 insert into public.project_members (project_id, user_id)
 values ('d1111111-0000-4000-8000-000000000001', '22222222-2222-4222-8222-222222222222');
 set role authenticated;
