@@ -17,6 +17,8 @@ export interface ShellUser {
   email: string;
   roleLabel: string;
   organisation: string | null;
+  /** Agency and portal users have separate account pages. */
+  accountHref: string;
 }
 
 export function AppShell({

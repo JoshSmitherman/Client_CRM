@@ -34,6 +34,7 @@ export default async function AgencyLayout({ children }: { children: React.React
         email: session.email,
         roleLabel: ROLE_LABELS[session.profile.role],
         organisation: organisation?.name ?? null,
+        accountHref: '/settings/account',
       }}
     >
       {children}

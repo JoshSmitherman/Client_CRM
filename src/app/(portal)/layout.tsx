@@ -34,6 +34,7 @@ export default async function PortalLayout({ children }: { children: React.React
         email: session.email,
         roleLabel: ROLE_LABELS[session.profile.role],
         organisation: organisation?.name ?? null,
+        accountHref: '/portal/account',
       }}
     >
       {children}

@@ -54,23 +54,32 @@ Supabase credentials the app shows a setup screen rather than an error.
 
 | Area | State |
 |---|---|
-| Database schema, RLS, audit, storage policies | Complete and verified |
+| Database schema, RLS, audit, storage policies | Complete, verified by 27 assertions in CI |
 | Authentication, invite-only provisioning, route guards | Complete |
 | Design system, app shells, light/dark, mobile | Complete |
-| Agency dashboard (KPIs, filters, search, attention lists) | Complete |
-| Clients — list, create, edit, detail | Complete |
-| Projects — list, create, 13-tab workspace, lifecycle, progress | Workspace shell + Overview, Tasks, Files, Onboarding, Changes, Comments, Activity |
-| Tasks, files/media library, threaded comments, approvals | Complete |
-| Onboarding engine (12 sections, review workflow) | Complete |
-| Change requests incl. quotation and client approval | Complete |
-| Support requests | Actions complete; screens in progress |
-| Maintenance plans, subscriptions, usage, reminders | Schema + usage accrual complete; screens in progress |
-| Handover, checklists, client acceptance | Schema complete; screens in progress |
-| Client portal | In progress |
+| **Agency** — dashboard, clients, projects | Complete |
+| **Agency** — project workspace (13 tabs) | Complete |
+| **Agency** — change requests with quotation and approval | Complete |
+| **Agency** — support queue and triage | Complete |
+| **Agency** — maintenance plans, subscriptions, usage, reminders | Complete |
+| **Agency** — handover, checklists, documents | Complete |
+| **Agency** — settings, team, invitations, stages, audit log | Complete |
+| **Client portal** — home, projects, onboarding, content | Complete |
+| **Client portal** — change requests, quote approval, support | Complete |
+| **Client portal** — files, maintenance, messages, handover acceptance | Complete |
+| Notifications, activity feed, progress tracking | Complete |
+| Renewal reminder sweep endpoint | Complete |
+| Email notifications, Stripe billing, calendar/Slack integrations | Not built — see Future phases |
+
+### Future phases
+
+The schema and code are shaped for these but they are not implemented:
+Stripe subscriptions and invoicing, email notifications (the
+`delivered_email_at` column and the single `notify()` function are already in
+place), calendar and Slack integrations, uptime and SSL monitoring,
+Lighthouse checks, and AI-assisted ticket classification.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full design.
-
----
 
 ## Security model
 

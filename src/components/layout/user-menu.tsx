@@ -67,7 +67,7 @@ export function UserMenu({ user }: { user: ShellUser }) {
           </div>
 
           <Link
-            href="/account"
+            href={user.accountHref}
             role="menuitem"
             className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-[var(--surface-hover)]"
           >
