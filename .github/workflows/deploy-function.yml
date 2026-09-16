@@ -22,7 +22,7 @@ name: Deploy the invitation function
 
 on:
   push:
-    # See the note in pages.yml about the development branch.
+    # See the note in pages.yml about branch names.
     branches: [main, claude/inspiring-allen-snxv3i]
     paths:
       - 'supabase/functions/**'

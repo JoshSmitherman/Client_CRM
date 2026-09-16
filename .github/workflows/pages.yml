@@ -16,8 +16,8 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    # The development branch is listed so the site can go live before the work
-    # is merged. Once it is on main, delete that second line.
+    # Both are listed so this keeps working if the default branch is renamed to
+    # main later. Drop whichever one you do not use.
     branches: [main, claude/inspiring-allen-snxv3i]
   workflow_dispatch:
 

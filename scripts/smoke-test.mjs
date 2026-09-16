@@ -78,6 +78,17 @@ const CASES = [
   { path: '/projects/abc', expect: 'Finish setting up', lands: '/setup' },
   { path: '/portal/requests/new', expect: 'Finish setting up', lands: '/setup' },
   { path: '/nope/nope', expect: 'could not find', lands: '/nope/nope' },
+  // Invitation and password-reset links come back with the code in the query
+  // string, and they arrive at a deep link — so the fallback has to carry it
+  // through untouched or nobody can ever accept an invitation.
+  // Signed out, so it says the link has expired — which is the right answer
+  // and proves the page was reached with its query string intact.
+  {
+    path: '/invite/accept?code=abc123',
+    expect: 'invitation link has expired',
+    lands: '/invite/accept',
+    keepsQuery: 'code=abc123',
+  },
 ];
 
 async function run(prefix) {
@@ -116,11 +127,25 @@ async function run(prefix) {
 
   let failures = 0;
 
-  for (const { path, expect, lands } of CASES) {
+  for (const { path, expect, lands, keepsQuery } of CASES) {
     problems.length = 0;
+
+    // What the router saw, before a guard had the chance to redirect.
+    let firstSeen = null;
+    await page.addInitScript(() => {
+      // Runs before the bundle, after the fallback has restored the address.
+      window.addEventListener('DOMContentLoaded', () => {
+        window.__firstSeen = window.location.pathname + window.location.search;
+      });
+    });
+
     await page.goto(`http://localhost:${PORT}${prefix.slice(0, -1)}${path}`, {
       waitUntil: 'networkidle',
     });
+
+    if (keepsQuery) {
+      firstSeen = await page.evaluate(() => window.__firstSeen ?? '');
+    }
     // The fallback restores the address with history.replaceState, so give the
     // router a moment to render what it then matched.
     await page.waitForTimeout(250);
@@ -129,7 +154,8 @@ async function run(prefix) {
     const landed = new URL(page.url()).pathname;
     const wanted = `${prefix.slice(0, -1)}${lands}`;
 
-    const ok = body.includes(expect) && landed === wanted && problems.length === 0;
+    const queryKept = !keepsQuery || (firstSeen ?? '').includes(keepsQuery);
+    const ok = body.includes(expect) && landed === wanted && queryKept && problems.length === 0;
     console.log(`${ok ? '  pass' : '  FAIL'}  ${path.padEnd(24)} -> ${landed}`);
 
     if (!ok) {
@@ -138,6 +164,9 @@ async function run(prefix) {
         console.log(`        expected "${expect}" in: ${body.replace(/\s+/g, ' ').slice(0, 160)}`);
       }
       if (landed !== wanted) console.log(`        expected to land on ${wanted}`);
+      if (!queryKept) {
+        console.log(`        the fallback dropped "${keepsQuery}" — saw "${firstSeen}"`);
+      }
       for (const problem of problems.slice(0, 3)) console.log(`        console: ${problem}`);
     }
   }

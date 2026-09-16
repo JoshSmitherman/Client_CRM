@@ -169,24 +169,18 @@ it for free, from this repository, with nothing else to pay for or manage.
    (not "Deploy from a branch")
 3. That is the only setting. There is nothing to save.
 
-Publishing happens by itself. Every push to `main` — or to the
-`claude/inspiring-allen-snxv3i` development branch, while the work is still
-there — rebuilds and republishes the site.
-
-To watch it, or to run it again by hand:
+Then publish it:
 
 1. Open **<https://github.com/JoshSmitherman/Client_CRM/actions/workflows/pages.yml>**
-2. The most recent run is at the top. Click it to see progress.
-3. To run it again: click **Run workflow** (right-hand side), choose the branch,
-   and click the green **Run workflow** button. It takes about a minute.
+2. Click **Run workflow** (right-hand side), then the green **Run workflow**
+   button
+3. Wait for the green tick — about a minute
 
-> **If the run says "Not deploying yet"**, the keys from step 3 are missing.
-> The workflow says so and stops rather than failing, so add them and run it
-> again.
+From then on it republishes by itself on every push.
 
-> The **Run workflow** button only appears once this workflow file exists on
-> your default branch. Until then, the automatic run on each push is what
-> publishes the site.
+> **If the run finishes but says "Not deploying yet"**, the keys from step 3
+> are missing. The workflow says so and stops rather than failing, so add them
+> and run it again.
 
 Your site is now at:
 
