@@ -33,7 +33,7 @@ as $$
     not exists (
       select 1
       from public.users u
-      where u.role = 'agency_admin'
+      where u.role::text = 'agency_admin'
         and u.is_active
         and u.deleted_at is null
     )

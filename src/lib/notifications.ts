@@ -62,7 +62,7 @@ export async function projectNotificationTargets(projectId: string): Promise<str
     supabase
       .from('users')
       .select('id')
-      .in('role', ['agency_admin', 'project_manager'])
+      .eq('role', 'agency')
       .eq('is_active', true)
       .is('deleted_at', null),
   ]);

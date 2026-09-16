@@ -8,12 +8,18 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ConfirmDelete } from '@/components/ui/confirm-delete';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Select } from '@/components/ui/field';
 import { Modal } from '@/components/ui/modal';
-import { deleteUserAction, revokeInvitationAction, setUserActiveAction } from '@/lib/actions/team';
+import {
+  deleteUserAction,
+  reassignClientUserAction,
+  revokeInvitationAction,
+  setUserActiveAction,
+} from '@/lib/actions/team';
 import { useAuth } from '@/lib/auth-context';
 import { revalidate } from '@/lib/data/revalidate';
 import { formatDate } from '@/lib/format';
-import { ROLE_LABELS, type AppRole } from '@/lib/permissions';
+import { ROLE_LABELS, isAgency, type AppRole } from '@/lib/permissions';
 
 export interface PortalUser {
   id: string;
@@ -49,6 +55,7 @@ export function PortalAccessDialog({
   clientName,
   users,
   invitations,
+  allClients,
 }: {
   open: boolean;
   onClose: () => void;
@@ -56,13 +63,17 @@ export function PortalAccessDialog({
   clientName: string;
   users: PortalUser[];
   invitations: PortalInvitation[];
+  /** Every client, so someone can be moved to one of the others. */
+  allClients: { id: string; company_name: string }[];
 }) {
   const { profile, userId } = useAuth();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<PortalUser | null>(null);
+  const [moving, setMoving] = useState<PortalUser | null>(null);
+  const [moveTo, setMoveTo] = useState('');
 
-  const isAdmin = profile?.role === 'agency_admin';
+  const isAdmin = profile ? isAgency(profile.role) : false;
 
   function run(work: () => Promise<void>) {
     setError(null);
@@ -79,7 +90,7 @@ export function PortalAccessDialog({
   return (
     <>
       <Modal
-        open={open && deleting === null}
+        open={open && deleting === null && moving === null}
         onClose={onClose}
         title={`Portal access — ${clientName}`}
         description="Who at this client can sign in, and what they can see."
@@ -127,14 +138,22 @@ export function PortalAccessDialog({
                     <li key={user.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
                       <Avatar name={user.full_name || user.email} size="sm" />
 
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-[13px] font-medium">
+                      <button
+                        type="button"
+                        className="min-w-0 flex-1 rounded-lg px-2 py-1 text-left transition-colors hover:bg-[var(--surface-hover)]"
+                        onClick={() => {
+                          setMoving(user);
+                          setMoveTo('');
+                        }}
+                        aria-label={`Move ${user.email} to a different client`}
+                      >
+                        <span className="block truncate text-[13px] font-medium">
                           {user.full_name || user.email}
-                        </p>
-                        <p className="truncate text-[12px] text-[var(--text-muted)]">
-                          {user.email} · {ROLE_LABELS[user.role]}
-                        </p>
-                      </div>
+                        </span>
+                        <span className="block truncate text-[12px] text-[var(--text-muted)]">
+                          {user.email} · {ROLE_LABELS[user.role]} · move
+                        </span>
+                      </button>
 
                       {user.is_active ? (
                         <Badge tone="success">Active</Badge>
@@ -234,6 +253,65 @@ export function PortalAccessDialog({
           ) : null}
         </div>
       </Modal>
+
+      {moving ? (
+        <Modal
+          open
+          onClose={() => setMoving(null)}
+          title={`Move ${moving.full_name || moving.email}`}
+          description="Their access follows whichever client they belong to."
+          footer={
+            <>
+              <Button variant="ghost" type="button" onClick={() => setMoving(null)}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                disabled={!moveTo || isPending}
+                onClick={() =>
+                  run(async () => {
+                    await reassignClientUserAction(moving.id, moveTo);
+                    setMoving(null);
+                  })
+                }
+              >
+                {isPending ? 'Moving…' : 'Move'}
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-4">
+            <Alert variant="warning" title="They lose sight of this client">
+              From their next request they see {allClients.find((c) => c.id === moveTo)
+                ?.company_name ?? 'the new client'} instead of {clientName} — the projects, files,
+              requests and messages all change with them. Nothing they wrote is deleted; their
+              comments and uploads stay where they are.
+            </Alert>
+
+            <div>
+              <label htmlFor="move-to-client" className="block text-[13px] font-medium">
+                Move to
+              </label>
+              <Select
+                id="move-to-client"
+                className="mt-1.5"
+                value={moveTo}
+                onChange={(e) => setMoveTo(e.target.value)}
+                placeholder="Choose a client"
+                options={allClients
+                  .filter((c) => c.id !== clientId)
+                  .map((c) => ({ value: c.id, label: c.company_name }))}
+              />
+            </div>
+
+            {allClients.length < 2 ? (
+              <p className="text-[13px] text-[var(--text-muted)]">
+                There is only one client to belong to, so there is nowhere to move them yet.
+              </p>
+            ) : null}
+          </div>
+        </Modal>
+      ) : null}
 
       {deleting ? (
         <ConfirmDelete

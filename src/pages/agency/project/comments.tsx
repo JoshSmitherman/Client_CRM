@@ -1,6 +1,7 @@
 import { CommentThread } from '@/components/comments/comment-thread';
 import { QueryBoundary } from '@/components/routing/page-state';
 import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { isAgency } from '@/lib/permissions';
 import { useAuth } from '@/lib/auth-context';
 import { useQuery } from '@/lib/data/use-query';
 import { getProjectComments } from '@/lib/queries/comments';
@@ -31,7 +32,7 @@ export function ProjectCommentsTab() {
                 clientId={client.id}
                 currentUserId={userId ?? ''}
                 canWriteInternal
-                isAdmin={profile?.role === 'agency_admin'}
+                isAdmin={profile ? isAgency(profile.role) : false}
               />
             )}
           </QueryBoundary>

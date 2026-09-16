@@ -59,10 +59,14 @@ create index if not exists users_organisation_idx
   on public.users (organisation_id) where deleted_at is null;
 create index if not exists users_role_idx
   on public.users (role) where deleted_at is null;
+-- Deliberately no role in the predicate. Naming values here would pin this
+-- file to one shape of the enum, and Postgres validates an index predicate
+-- before it honours `if not exists` — so a later migration that changes the
+-- enum would make re-running this file fail. Migration 0018 narrows it to
+-- agency accounts once the vocabulary is settled.
 create index if not exists users_active_agency_idx
   on public.users (role)
-  where is_active and deleted_at is null
-    and role not in ('client_owner', 'client_member');
+  where is_active and deleted_at is null;
 
 drop trigger if exists users_set_updated_at on public.users;
 create trigger users_set_updated_at

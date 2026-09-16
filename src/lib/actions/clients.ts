@@ -2,7 +2,7 @@
 import { recordActivity } from '@/lib/activity';
 import { AuditAction, recordAudit } from '@/lib/audit';
 import { setInternalNote } from '@/lib/internal-notes';
-import { isAgencyManager } from '@/lib/permissions';
+import { isAgency, isAgencyManager } from '@/lib/permissions';
 import { requireAgencyUser } from '@/lib/session';
 import { supabase } from '@/lib/supabase/client';
 import { slugify } from '@/lib/utils';
@@ -204,7 +204,7 @@ export async function updateClientAction(
  */
 export async function archiveClientAction(clientId: string): Promise<string> {
   const session = await requireAgencyUser();
-  if (session.profile.role !== 'agency_admin') {
+  if (!isAgency(session.profile.role)) {
     throw new Error('Only an administrator can archive a client.');
   }
 

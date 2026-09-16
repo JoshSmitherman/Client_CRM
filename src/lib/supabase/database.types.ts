@@ -3136,7 +3136,7 @@ export interface Database {
     };
     Enums: {
       activity_visibility: 'internal' | 'client';
-      app_role: 'agency_admin' | 'project_manager' | 'account_manager' | 'developer' | 'designer' | 'qa' | 'support_agent' | 'client_owner' | 'client_member';
+      app_role: 'agency' | 'client';
       approval_decision: 'approved' | 'rejected' | 'changes_requested';
       billing_frequency: 'monthly' | 'quarterly' | 'annual';
       billing_treatment: 'included_in_plan' | 'additional_charge' | 'requires_quotation' | 'out_of_scope';

@@ -4,7 +4,6 @@ import { Checkbox, Field, Input, Select, Textarea } from '@/components/ui/field'
 import { FormMessage, SubmitButton } from '@/components/ui/form-status';
 import { saveAgencySettingsAction } from '@/lib/actions/settings';
 import { useFormAction } from '@/lib/data/use-form-action';
-import { AGENCY_ROLES, ROLE_LABELS } from '@/lib/permissions';
 import type { Tables } from '@/lib/supabase/database.types';
 
 export function AgencySettingsForm({ settings }: { settings: Tables<'agency_settings'> | null }) {
@@ -105,22 +104,6 @@ export function AgencySettingsForm({ settings }: { settings: Tables<'agency_sett
                   { value: 'domain_allowlist', label: 'Allowed, active straight away' },
                   { value: 'disabled', label: 'Off — invitation only' },
                 ]}
-              />
-            )}
-          </Field>
-
-          <Field
-            label="Role new staff get"
-            error={e.staffDefaultRole}
-            hint="You can change anyone's role afterwards on the Team tab."
-          >
-            {({ id, describedBy }) => (
-              <Select
-                id={id}
-                name="staffDefaultRole"
-                defaultValue={settings?.staff_default_role ?? 'project_manager'}
-                aria-describedby={describedBy}
-                options={AGENCY_ROLES.map((r) => ({ value: r, label: ROLE_LABELS[r] }))}
               />
             )}
           </Field>

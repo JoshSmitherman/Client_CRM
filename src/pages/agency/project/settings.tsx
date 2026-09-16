@@ -14,7 +14,7 @@ import {
   type DeletionImpact,
 } from '@/lib/actions/destroy';
 import { useProfile } from '@/lib/auth-context';
-import { canDeleteRecords } from '@/lib/permissions';
+import { canDeleteRecords, isAgency } from '@/lib/permissions';
 import { useQuery } from '@/lib/data/use-query';
 import { getInternalNote } from '@/lib/internal-notes';
 import { getAgencyStaff, getLifecycleStages, getProjectMembers } from '@/lib/queries/projects';
@@ -66,7 +66,7 @@ export function ProjectSettingsTab() {
               members={members}
               staff={staff}
               canManage={
-                profile.role === 'agency_admin' || profile.role === 'project_manager'
+                isAgency(profile.role)
               }
             />
 

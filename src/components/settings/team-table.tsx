@@ -1,10 +1,18 @@
+import { Trash2 } from 'lucide-react';
 import { useState, useTransition } from 'react';
 
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ConfirmDelete } from '@/components/ui/confirm-delete';
 import { Table, TableWrap, Td, Th, Tr } from '@/components/ui/table';
-import { revokeInvitationAction, setUserActiveAction, setUserRoleAction } from '@/lib/actions/team';
+import {
+  deleteUserAction,
+  revokeInvitationAction,
+  setUserActiveAction,
+  setUserRoleAction,
+} from '@/lib/actions/team';
+import { revalidate } from '@/lib/data/revalidate';
 import { formatDate, formatRelative } from '@/lib/format';
 import { AGENCY_ROLES, CLIENT_ROLES, ROLE_LABELS, type AppRole } from '@/lib/permissions';
 
@@ -39,6 +47,7 @@ export function TeamTable({
   canManage: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
+  const [deleting, setDeleting] = useState<TeamMember | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   function run(fn: () => Promise<void>) {
@@ -52,7 +61,7 @@ export function TeamTable({
     });
   }
 
-  const roleOptions = [...AGENCY_ROLES, ...CLIENT_ROLES];
+  const roleOptions: AppRole[] = [...AGENCY_ROLES, ...CLIENT_ROLES];
 
   return (
     <>
@@ -137,14 +146,27 @@ export function TeamTable({
                 {canManage ? (
                   <Td className="text-right">
                     {member.id !== currentUserId ? (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={isPending}
-                        onClick={() => run(() => setUserActiveAction(member.id, !member.is_active))}
-                      >
-                        {member.is_active ? 'Deactivate' : 'Reactivate'}
-                      </Button>
+                      <span className="flex items-center justify-end gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={isPending}
+                          onClick={() =>
+                            run(() => setUserActiveAction(member.id, !member.is_active))
+                          }
+                        >
+                          {member.is_active ? 'Remove access' : 'Restore'}
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          disabled={isPending}
+                          aria-label={`Delete the account for ${member.email}`}
+                          onClick={() => setDeleting(member)}
+                        >
+                          <Trash2 className="h-4 w-4" aria-hidden="true" />
+                        </Button>
+                      </span>
                     ) : null}
                   </Td>
                 ) : null}
@@ -190,6 +212,28 @@ export function TeamTable({
           </tbody>
         </Table>
       </TableWrap>
+
+      {deleting ? (
+        <ConfirmDelete
+          open
+          onClose={() => setDeleting(null)}
+          title={`Delete the account for ${deleting.full_name || deleting.email}`}
+          confirmationText={deleting.email}
+          confirmLabel="Delete this account"
+          consequences={[
+            'They can never sign in again, and any session they have open stops working.',
+            'Their name comes off past work — files they uploaded and records they created will show nobody.',
+            'The audit log and the activity feed keep their name, because those store it as text.',
+            `${deleting.email} is freed, so they can be invited again from scratch.`,
+            'Removing access instead is reversible and keeps all of the above intact.',
+          ]}
+          onConfirm={async () => {
+            await deleteUserAction(deleting.id);
+            setDeleting(null);
+            revalidate();
+          }}
+        />
+      ) : null}
     </>
   );
 }

@@ -136,7 +136,7 @@ export async function deleteCommentAction(commentId: string): Promise<void> {
   if (!comment) return;
 
   const allowed =
-    comment.author_id === session.userId || session.profile.role === 'agency_admin';
+    comment.author_id === session.userId || isAgency(session.profile.role);
   if (!allowed) throw new Error('You can only delete your own comments.');
 
   await supabase

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { AuditAction, recordAudit } from '@/lib/audit';
-import { canInviteColleagues, isAgencyAdmin } from '@/lib/permissions';
+import { canInviteColleagues, isAgency, isAgencyAdmin } from '@/lib/permissions';
 import { currentUser } from '@/lib/session';
 
 import { siteUrl, supabase } from '@/lib/supabase/client';
@@ -250,4 +250,60 @@ export async function deleteUserAction(userId: string): Promise<void> {
 
   // The Edge Function writes the audit entry, as the caller, before deleting —
   // so the log still names the person once the account is gone.
+}
+
+/**
+ * Moves a client user to a different client.
+ *
+ * A portal user's access follows their organisation: current_client_id() finds
+ * the client whose organisation_id matches theirs, and every policy is written
+ * against that. So reassignment is a single column, and it takes effect on
+ * their next request — including revoking everything they could see before.
+ *
+ * Agency accounts are deliberately not movable this way. They all belong to
+ * the one agency organisation, and pointing one at a client's organisation
+ * would leave an account that is neither properly staff nor properly a client.
+ */
+export async function reassignClientUserAction(
+  userId: string,
+  targetClientId: string,
+): Promise<void> {
+  const session = await currentUser();
+  if (!isAgency(session.profile.role)) {
+    throw new Error('Only agency users can move someone between clients.');
+  }
+
+  const [{ data: target }, { data: client }] = await Promise.all([
+    supabase.from('users').select('email, role, organisation_id').eq('id', userId).maybeSingle(),
+    supabase
+      .from('clients')
+      .select('company_name, organisation_id')
+      .eq('id', targetClientId)
+      .maybeSingle(),
+  ]);
+
+  if (!target) throw new Error('That account could not be found.');
+  if (!client) throw new Error('That client could not be found.');
+
+  if (target.role !== 'client') {
+    throw new Error('Only a client account can be moved between clients.');
+  }
+  if (target.organisation_id === client.organisation_id) {
+    throw new Error(`They are already with ${client.company_name}.`);
+  }
+
+  const { error } = await supabase
+    .from('users')
+    .update({ organisation_id: client.organisation_id })
+    .eq('id', userId);
+
+  if (error) throw new Error(`Could not move the account: ${error.message}`);
+
+  await recordAudit({
+    action: AuditAction.PermissionsChanged,
+    entityType: 'user',
+    entityId: userId,
+    previousValue: { organisation_id: target.organisation_id },
+    newValue: { organisation_id: client.organisation_id, client: client.company_name },
+  });
 }

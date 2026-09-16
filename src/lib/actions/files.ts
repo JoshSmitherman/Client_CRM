@@ -219,10 +219,8 @@ export async function deleteFileAction(fileId: string): Promise<void> {
 
   if (!file) return;
 
-  const canDelete =
-    session.profile.role === 'agency_admin' ||
-    session.profile.role === 'project_manager' ||
-    file.uploaded_by === session.userId;
+  // Agency staff, or whoever uploaded it.
+  const canDelete = isAgency(session.profile.role) || file.uploaded_by === session.userId;
 
   if (!canDelete) throw new Error('You can only delete files you uploaded.');
 

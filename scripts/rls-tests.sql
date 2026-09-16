@@ -25,7 +25,7 @@ begin
   select role, is_active, organisation_id into v_role, v_active, v_org
   from public.users where id = '11111111-1111-4111-8111-111111111111';
 
-  if v_role <> 'agency_admin' or not v_active or v_org is null then
+  if v_role <> 'agency' or not v_active or v_org is null then
     raise exception 'RLS ASSERTION FAILED: the first signup did not become an active administrator (role=%, active=%, org=%)',
       v_role, v_active, v_org;
   end if;
@@ -44,7 +44,7 @@ begin
   select role, is_active into v_role, v_active
   from public.users where id = '22222222-2222-4222-8222-222222222222';
 
-  if v_role = 'agency_admin' or v_active then
+  if v_role = 'agency' or v_active then
     raise exception 'RLS ASSERTION FAILED: a later signup was also made an administrator';
   end if;
   raise notice '  pass: only the first signup is bootstrapped';
@@ -58,10 +58,10 @@ insert into public.organisations (id, kind, name, slug) values
 -- (no invitation existed), which is itself the behaviour we want. Promote them
 -- here the way accepting an invitation would.
 insert into public.users (id, email, full_name, role, organisation_id, is_active) values
-  ('11111111-1111-4111-8111-111111111111', 'admin@northpoint.test', 'Agency Admin', 'agency_admin', '00000000-0000-4000-8000-000000000001', true),
-  ('22222222-2222-4222-8222-222222222222', 'dev@northpoint.test',   'Dev Person',   'developer',    '00000000-0000-4000-8000-000000000001', true),
-  ('33333333-3333-4333-8333-333333333333', 'owner@acme.test',       'Acme Owner',   'client_owner', 'aaaaaaaa-0000-4000-8000-000000000001', true),
-  ('44444444-4444-4444-8444-444444444444', 'owner@globex.test',     'Globex Owner', 'client_owner', 'bbbbbbbb-0000-4000-8000-000000000002', true)
+  ('11111111-1111-4111-8111-111111111111', 'admin@northpoint.test', 'Agency Admin', 'agency', '00000000-0000-4000-8000-000000000001', true),
+  ('22222222-2222-4222-8222-222222222222', 'dev@northpoint.test',   'Dev Person',   'agency',       '00000000-0000-4000-8000-000000000001', true),
+  ('33333333-3333-4333-8333-333333333333', 'owner@acme.test',       'Acme Owner',   'client',       'aaaaaaaa-0000-4000-8000-000000000001', true),
+  ('44444444-4444-4444-8444-444444444444', 'owner@globex.test',     'Globex Owner', 'client',       'bbbbbbbb-0000-4000-8000-000000000002', true)
 on conflict (id) do update
   set full_name = excluded.full_name,
       role = excluded.role,
@@ -284,7 +284,7 @@ select pg_temp.assert(
 \echo '--- privilege escalation ---'
 do $$
 begin
-  update public.users set role = 'agency_admin'
+  update public.users set role = 'agency'
   where id = '33333333-3333-4333-8333-333333333333';
   raise exception 'RLS ASSERTION FAILED: client escalated their own role';
 exception
@@ -315,25 +315,31 @@ select pg_temp.assert(
 select public.record_audit('test.action', 'project', 'd1111111-0000-4000-8000-000000000001');
 
 -- --------------------------------------------------------------------------
--- 7. Agency scoping — a developer sees only projects they are a member of
+-- 7. Agency scoping — one staff role means one view of the work
 -- --------------------------------------------------------------------------
-\echo '--- agency member scoping ---'
+-- Before migration 0018 this asserted the opposite: a developer saw only the
+-- projects they were a member of, and a manager saw everything. Collapsing to
+-- a single agency role removes that distinction deliberately, so the assertion
+-- is inverted rather than deleted — the behaviour is now a decision, not an
+-- accident, and it is worth failing loudly if it ever changes back.
+\echo '--- agency scoping ---'
 select set_config('request.jwt.claim.sub', '22222222-2222-4222-8222-222222222222', false);
 
 select pg_temp.assert(
-  (select count(*) from public.projects) = 0,
-  'developer with no membership sees no projects');
+  (select count(*) from public.projects) = 2,
+  'an agency user sees every project without being a member of it');
+
+select pg_temp.assert(
+  (select count(*) from public.clients) = 2,
+  'an agency user sees every client');
 
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
 insert into public.project_members (project_id, user_id)
-values ('d1111111-0000-4000-8000-000000000001', '22222222-2222-4222-8222-222222222222');
+values ('d1111111-0000-4000-8000-000000000001', '22222222-2222-4222-8222-222222222222')
+on conflict do nothing;
 set role authenticated;
 select set_config('request.jwt.claim.sub', '22222222-2222-4222-8222-222222222222', false);
-
-select pg_temp.assert(
-  (select count(*) from public.projects) = 1,
-  'developer sees a project once added as a member');
 
 select pg_temp.assert(
   (select count(*) from public.comments where is_internal) = 1,
@@ -381,7 +387,7 @@ select set_config('request.jwt.claim.sub', '', false);
 update public.agency_settings
 set staff_email_domains = array['northpoint.test'],
     staff_signup_mode = 'approval_required',
-    staff_default_role = 'developer';
+    staff_default_role = 'agency';
 
 insert into auth.users (id, email) values
   ('55555555-5555-4555-8555-555555555555', 'pending@northpoint.test');
@@ -392,7 +398,7 @@ begin
   select role, is_active, organisation_id into v_role, v_active, v_org
   from public.users where id = '55555555-5555-4555-8555-555555555555';
 
-  if v_role <> 'developer' or v_active or v_org is null then
+  if v_role <> 'agency' or v_active or v_org is null then
     raise exception 'RLS ASSERTION FAILED: approval_required did not create a pending staff account (role=%, active=%, org=%)',
       v_role, v_active, v_org;
   end if;
@@ -410,7 +416,7 @@ begin
   select role, is_active into v_role, v_active
   from public.users where id = '66666666-6666-4666-8666-666666666666';
 
-  if v_role <> 'developer' or not v_active then
+  if v_role <> 'agency' or not v_active then
     raise exception 'RLS ASSERTION FAILED: domain_allowlist did not activate the staff account';
   end if;
   raise notice '  pass: an allow-listed domain is active immediately in that mode';
@@ -449,7 +455,7 @@ reset role;
 select set_config('request.jwt.claim.sub', '', false);
 
 insert into public.invitations (email, role, organisation_id)
-values ('invited@northpoint.test', 'agency_admin', '00000000-0000-4000-8000-000000000001');
+values ('invited@northpoint.test', 'agency', '00000000-0000-4000-8000-000000000001');
 
 insert into auth.users (id, email) values
   ('88888888-8888-4888-8888-888888888888', 'invited@northpoint.test');
@@ -460,7 +466,7 @@ begin
   select role, is_active into v_role, v_active
   from public.users where id = '88888888-8888-4888-8888-888888888888';
 
-  if v_role <> 'agency_admin' or not v_active then
+  if v_role <> 'agency' or not v_active then
     raise exception 'RLS ASSERTION FAILED: the invitation did not take precedence over the domain rule';
   end if;
   raise notice '  pass: an invitation overrides the domain default';
@@ -585,71 +591,50 @@ select set_config('request.jwt.claim.sub', '', false);
 -- --------------------------------------------------------------------------
 -- Permanent deletion
 -- --------------------------------------------------------------------------
--- Migration 0017 widened the delete policies from administrators to project
--- managers. That is a real increase in blast radius — a cascade takes projects,
--- files, requests and subscriptions with it — so who can and cannot do it is
--- worth asserting rather than assuming.
-insert into auth.users (id, email) values
-  ('7d000000-0000-4000-8000-00000000000d', 'dev2@northpoint.test');
+-- Deleting a client cascades to its projects, files, requests and
+-- subscriptions, so who can do it is worth asserting rather than assuming.
+--
+-- Migration 0017 widened this from administrators to project managers; 0018
+-- then collapsed the agency roles into one, so today it means every agency
+-- user and no client. That is a real increase in blast radius and the reason
+-- these assertions exist: if a client ever gains this, the build fails.
 
-reset role;
-select set_config('request.jwt.claim.sub', '', false);
-update public.users
-  set role = 'developer', is_active = true,
-      organisation_id = (select organisation_id from public.users
-                         where id = '11111111-1111-4111-8111-111111111111')
-  where id = '7d000000-0000-4000-8000-00000000000d';
-
--- Put them on the project, so they can genuinely see both records. Deleting
--- something invisible is a no-op whatever the policy says; the point here is
--- that seeing it is not the same as being allowed to destroy it.
-insert into public.project_members (project_id, user_id, can_edit)
-values ('d1111111-0000-4000-8000-000000000001',
-        '7d000000-0000-4000-8000-00000000000d', true)
-on conflict do nothing;
-
--- A developer is agency staff, works on the project, and still may not delete.
+-- A client cannot delete their own organisation's record, nor its projects.
 set role authenticated;
-select set_config('request.jwt.claim.sub', '7d000000-0000-4000-8000-00000000000d', false);
-
-select pg_temp.assert(
-  (select count(*) from public.clients where id = 'c1111111-0000-4000-8000-000000000001') = 1,
-  'a developer can see the client they cannot delete');
-
-delete from public.clients where id = 'c1111111-0000-4000-8000-000000000001';
-
-select pg_temp.assert(
-  (select count(*) from public.clients where id = 'c1111111-0000-4000-8000-000000000001') = 1,
-  'a developer cannot delete a client');
-
-delete from public.projects where id = 'd1111111-0000-4000-8000-000000000001';
-
-select pg_temp.assert(
-  (select count(*) from public.projects where id = 'd1111111-0000-4000-8000-000000000001') = 1,
-  'a developer cannot delete a project');
-
--- A client certainly may not.
 select set_config('request.jwt.claim.sub', '33333333-3333-4333-8333-333333333333', false);
+
+select pg_temp.assert(
+  (select count(*) from public.clients) = 1,
+  'a client can see their own record');
+
 delete from public.clients where id = 'c1111111-0000-4000-8000-000000000001';
 
 select pg_temp.assert(
   (select count(*) from public.clients where id = 'c1111111-0000-4000-8000-000000000001') = 1,
   'a client cannot delete their own organisation record');
 
--- A project manager can, and the cascade reaches the project.
+delete from public.projects where id = 'd1111111-0000-4000-8000-000000000001';
+
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
-update public.users set role = 'project_manager'
-  where id = '7d000000-0000-4000-8000-00000000000d';
 
+select pg_temp.assert(
+  (select count(*) from public.projects where id = 'd1111111-0000-4000-8000-000000000001') = 1,
+  'a client cannot delete a project');
+
+-- An agency user can, and the cascade reaches everything hanging off it.
 set role authenticated;
-select set_config('request.jwt.claim.sub', '7d000000-0000-4000-8000-00000000000d', false);
+select set_config('request.jwt.claim.sub', '22222222-2222-4222-8222-222222222222', false);
 
 delete from public.projects where id = 'd1111111-0000-4000-8000-000000000001';
 
 select pg_temp.assert(
   (select count(*) from public.projects where id = 'd1111111-0000-4000-8000-000000000001') = 0,
-  'a project manager can delete a project');
+  'an agency user can delete a project');
+
+select pg_temp.assert(
+  (select count(*) from public.tasks where project_id = 'd1111111-0000-4000-8000-000000000001') = 0,
+  'deleting a project takes its tasks with it');
 
 reset role;
 \echo 'ALL RLS ASSERTIONS PASSED'

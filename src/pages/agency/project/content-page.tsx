@@ -13,7 +13,7 @@ import { useAuth } from '@/lib/auth-context';
 import { PAGE_STATUS_LABELS, PAGE_STATUS_TONES } from '@/lib/constants';
 import { useQuery } from '@/lib/data/use-query';
 import { formatRelative } from '@/lib/format';
-import { isAgencyManager } from '@/lib/permissions';
+import { isAgency, isAgencyManager } from '@/lib/permissions';
 import { getComments } from '@/lib/queries/comments';
 import { supabase } from '@/lib/supabase/client';
 import { useProjectWorkspace } from '@/pages/agency/project-workspace';
@@ -121,7 +121,7 @@ export function ProjectPageEditor() {
                       clientId={client.id}
                       currentUserId={userId}
                       canWriteInternal
-                      isAdmin={profile.role === 'agency_admin'}
+                      isAdmin={isAgency(profile.role)}
                       placeholder="Ask a question about this page…"
                     />
                   </CardBody>

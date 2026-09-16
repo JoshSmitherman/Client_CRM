@@ -47,7 +47,7 @@ import { useQuery } from '@/lib/data/use-query';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { getInternalNote } from '@/lib/internal-notes';
 import { ROLE_LABELS, canDeleteRecords } from '@/lib/permissions';
-import { getClient, getClientOverview } from '@/lib/queries/clients';
+import { getClient, getClientOverview, getClients } from '@/lib/queries/clients';
 import { useDocumentTitle } from '@/lib/use-document-title';
 import { NotFoundPage } from '@/pages/not-found';
 
@@ -55,12 +55,13 @@ async function load(id: string) {
   const client = await getClient(id);
   if (!client) return null;
 
-  const [overview, internalNote] = await Promise.all([
+  const [overview, internalNote, allClients] = await Promise.all([
     getClientOverview(id),
     getInternalNote('client', id),
+    getClients(),
   ]);
 
-  return { client, overview, internalNote };
+  return { client, overview, internalNote, allClients };
 }
 
 export function ClientDetailPage() {
@@ -92,7 +93,7 @@ export function ClientDetailPage() {
     <QueryBoundary query={query}>
       {(data) => {
         if (!data) return <NotFoundPage />;
-        const { client, overview, internalNote } = data;
+        const { client, overview, internalNote, allClients } = data;
 
         const manager = client.account_manager as unknown as
           | { full_name: string; email: string }
@@ -507,6 +508,10 @@ export function ClientDetailPage() {
                   clientName={client.company_name}
                   users={portalUsers}
                   invitations={pendingInvites}
+                  allClients={allClients.map((c) => ({
+                    id: c.id,
+                    company_name: c.company_name,
+                  }))}
                 />
 
                 {canDelete ? (

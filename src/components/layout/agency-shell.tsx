@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { AppShell } from './app-shell';
 import { AGENCY_MOBILE_NAV, AGENCY_NAV } from './navigation';
 import { useProfile } from '@/lib/auth-context';
-import { ROLE_LABELS } from '@/lib/permissions';
+import { ROLE_LABELS, isAgency } from '@/lib/permissions';
 import { getAgencyBadges } from '@/lib/queries/badges';
 import { supabase } from '@/lib/supabase/client';
 
@@ -43,7 +43,7 @@ export function AgencyShell() {
       nav={AGENCY_NAV}
       mobileNav={AGENCY_MOBILE_NAV}
       badges={badges}
-      isAdmin={profile.role === 'agency_admin'}
+      isAdmin={isAgency(profile.role)}
       user={{
         name: profile.full_name || profile.email,
         email: profile.email,

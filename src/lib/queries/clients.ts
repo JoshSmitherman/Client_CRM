@@ -148,7 +148,7 @@ export async function getAccountManagers() {
   const { data } = await supabase
     .from('users')
     .select('id, full_name')
-    .in('role', ['agency_admin', 'project_manager', 'account_manager'])
+    .eq('role', 'agency')
     .eq('is_active', true)
     .is('deleted_at', null)
     .order('full_name');

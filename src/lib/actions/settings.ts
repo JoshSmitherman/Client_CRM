@@ -30,15 +30,6 @@ const settingsSchema = z.object({
   legalAdviceDisclaimer: requiredText('Legal disclaimer', 2000),
   credentialSharingGuidance: requiredText('Credential guidance', 2000),
   staffSignupMode: z.enum(['disabled', 'domain_allowlist', 'approval_required']),
-  staffDefaultRole: z.enum([
-    'agency_admin',
-    'project_manager',
-    'account_manager',
-    'developer',
-    'designer',
-    'qa',
-    'support_agent',
-  ]),
   // Entered comma or newline separated; stored as a clean lower-case array.
   staffEmailDomains: z
     .string()
@@ -95,7 +86,7 @@ export async function saveAgencySettingsAction(
       credential_sharing_guidance: input.credentialSharingGuidance,
       default_reminder_offsets: input.reminderOffsets,
       staff_signup_mode: input.staffSignupMode,
-      staff_default_role: input.staffDefaultRole,
+      staff_default_role: 'agency',
       staff_email_domains: input.staffEmailDomains,
     },
     { onConflict: 'id' },
@@ -113,7 +104,7 @@ export async function saveAgencySettingsAction(
       // Worth auditing: this decides who can register themselves as staff.
       staff_signup_mode: input.staffSignupMode,
       staff_email_domains: input.staffEmailDomains,
-      staff_default_role: input.staffDefaultRole,
+      staff_default_role: 'agency',
     },
   });
   return successState('Settings saved.');

@@ -49,7 +49,7 @@ export async function requireAgencyUser(): Promise<CurrentUser> {
 
 export async function requireAgencyAdminUser(): Promise<CurrentUser> {
   const user = await currentUser();
-  if (user.profile.role !== 'agency_admin') {
+  if (!isAgency(user.profile.role)) {
     throw new Error('Only an agency administrator can do that.');
   }
   return user;

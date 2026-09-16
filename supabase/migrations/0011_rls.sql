@@ -124,22 +124,22 @@ drop policy if exists invitations_client_owner_insert on public.invitations;
 create policy invitations_client_owner_insert on public.invitations
   for insert to authenticated
   with check (
-    public.current_app_role() = 'client_owner'
+    public.current_app_role()::text = 'client_owner'
     and organisation_id = public.current_organisation_id()
-    and role in ('client_owner', 'client_member')
+    and role::text in ('client_owner', 'client_member')
   );
 
 drop policy if exists invitations_client_owner_revoke on public.invitations;
 create policy invitations_client_owner_revoke on public.invitations
   for update to authenticated
   using (
-    public.current_app_role() = 'client_owner'
+    public.current_app_role()::text = 'client_owner'
     and organisation_id = public.current_organisation_id()
   )
   with check (
-    public.current_app_role() = 'client_owner'
+    public.current_app_role()::text = 'client_owner'
     and organisation_id = public.current_organisation_id()
-    and role in ('client_owner', 'client_member')
+    and role::text in ('client_owner', 'client_member')
   );
 
 -- ---------------------------------------------------------------------------
@@ -771,7 +771,7 @@ create policy client_acceptances_insert on public.client_acceptances
   with check (
     approved_by = auth.uid()
     and public.can_access_project(project_id)
-    and public.current_app_role() = 'client_owner'
+    and public.current_app_role()::text = 'client_owner'
   );
 -- No UPDATE/DELETE: acceptance is permanent.
 

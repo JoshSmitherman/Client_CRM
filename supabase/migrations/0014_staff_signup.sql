@@ -136,7 +136,7 @@ begin
   -- ------------------------------------------------------- 2. first ever account
   select exists (
     select 1 from public.users
-    where role = 'agency_admin' and is_active and deleted_at is null
+    where role::text = 'agency_admin' and is_active and deleted_at is null
   ) into v_has_admin;
 
   if not v_has_admin then

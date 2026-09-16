@@ -385,7 +385,7 @@ export async function requestPlanChangeAction(
   const { data: admins } = await supabase
     .from('users')
     .select('id')
-    .in('role', ['agency_admin', 'project_manager', 'account_manager'])
+    .eq('role', 'agency')
     .eq('is_active', true)
     .is('deleted_at', null);
 

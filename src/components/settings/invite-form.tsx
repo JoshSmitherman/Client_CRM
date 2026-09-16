@@ -30,7 +30,7 @@ export function InviteForm({
   // Invited from a client record, the useful default is someone who can manage
   // that client's portal — not an agency developer.
   const [role, setRole] = useState<string>(
-    defaultClientId || !canInviteAgency ? 'client_owner' : 'project_manager',
+    defaultClientId || !canInviteAgency ? 'client' : 'agency',
   );
 
   const isClientRole = CLIENT_ROLES.includes(role as (typeof CLIENT_ROLES)[number]);
@@ -38,7 +38,7 @@ export function InviteForm({
   // Someone who can only invite colleagues gets the client option alone.
   const typeOptions = (canInviteAgency
     ? ACCOUNT_TYPES
-    : ACCOUNT_TYPES.filter((t) => t.value === 'client_owner')
+    : ACCOUNT_TYPES.filter((t) => t.value === 'client')
   ).map((t) => ({ value: t.value, label: t.label }));
 
   const chosen = ACCOUNT_TYPES.find((t) => t.value === role);

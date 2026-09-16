@@ -258,7 +258,7 @@ async function agencyAdminIds(): Promise<string[]> {
   const { data } = await supabase
     .from('users')
     .select('id')
-    .in('role', ['agency_admin', 'project_manager', 'support_agent'])
+    .eq('role', 'agency')
     .eq('is_active', true)
     .is('deleted_at', null);
   return (data ?? []).map((u) => u.id);

@@ -18,62 +18,50 @@ import type { Enums } from '@/lib/supabase/database.types';
 
 export type AppRole = Enums<'app_role'>;
 
-export const AGENCY_ROLES: AppRole[] = [
-  'agency_admin',
-  'project_manager',
-  'account_manager',
-  'developer',
-  'designer',
-  'qa',
-  'support_agent',
-];
+export const AGENCY_ROLES: AppRole[] = ['agency'];
+export const CLIENT_ROLES: AppRole[] = ['client'];
 
-export const CLIENT_ROLES: AppRole[] = ['client_owner', 'client_member'];
-
-/** Roles that see every client and project without explicit membership. */
-export const MANAGER_ROLES: AppRole[] = ['agency_admin', 'project_manager'];
+/** Kept for the places that ask "can this person see everything?". */
+export const MANAGER_ROLES: AppRole[] = ['agency'];
 
 export const ROLE_LABELS: Record<AppRole, string> = {
-  agency_admin: 'Agency administrator',
-  project_manager: 'Project manager',
-  account_manager: 'Account manager',
-  developer: 'Developer',
-  designer: 'Designer',
-  qa: 'QA',
-  support_agent: 'Support agent',
-  client_owner: 'Client administrator',
-  client_member: 'Client team member',
+  agency: 'Agency',
+  client: 'Client',
 };
 
 /**
- * The two account types the interface offers.
+ * The two account types, with what each one means.
  *
- * The enum behind this still carries seven agency roles and two client ones,
- * because the brief asked for room to add more later and the policies are
- * already written against them. But an agency setting this up today chooses
- * between two things, so those are the two on offer: staff, who work on
- * projects, and client, who sees their own.
- *
- * Everything else remains assignable in the database and displays correctly if
- * it is set there — nothing has been removed, only hidden from the picker.
+ * Migration 0018 reduced app_role to exactly these. There is no longer a
+ * distinction between an agency administrator and a developer: anyone on the
+ * agency side sees every client, changes agency settings, approves new staff,
+ * and can permanently delete a client or a project.
  */
-export const ACCOUNT_TYPES = [
+export const ACCOUNT_TYPES: { value: AppRole; label: string; description: string }[] = [
   {
-    value: 'project_manager' as AppRole,
-    label: 'Staff',
-    description: 'Works on projects. Sees every client, and can delete records.',
+    value: 'agency',
+    label: 'Agency',
+    description:
+      'Works here. Sees every client and project, and can change settings and delete records.',
   },
   {
-    value: 'client_owner' as AppRole,
+    value: 'client',
     label: 'Client',
-    description: 'Sees only their own organisation — projects, files and requests.',
+    description: 'Sees one organisation only — its projects, files, requests and messages.',
   },
 ];
 
-export const isAgency = (role: AppRole): boolean => !CLIENT_ROLES.includes(role);
-export const isAgencyAdmin = (role: AppRole): boolean => role === 'agency_admin';
-export const isAgencyManager = (role: AppRole): boolean => MANAGER_ROLES.includes(role);
-export const isClientRole = (role: AppRole): boolean => CLIENT_ROLES.includes(role);
+export const isAgency = (role: AppRole): boolean => role === 'agency';
+export const isClientRole = (role: AppRole): boolean => role === 'client';
+
+/**
+ * These three were distinct when there were seven agency roles. They are kept
+ * as separate names because the SQL predicates they mirror are also still
+ * separate — which is what would let the distinctions come back without
+ * touching a hundred policies.
+ */
+export const isAgencyAdmin = isAgency;
+export const isAgencyManager = isAgency;
 
 export interface ProjectMembership {
   isMember: boolean;
@@ -82,10 +70,11 @@ export interface ProjectMembership {
 }
 
 export function canEditProject(role: AppRole, membership: ProjectMembership): boolean {
-  if (!isAgency(role)) return false;
-  if (isAgencyManager(role)) return true;
-  if (membership.isAccountManager) return true;
-  return membership.isMember && membership.canEdit;
+  // Membership no longer narrows anything for agency users — with one staff
+  // role they can all edit — but the parameter stays because project_members
+  // still governs assignment and notification.
+  void membership;
+  return isAgency(role);
 }
 
 /** Only agency users may write internal notes and internal comments. */
@@ -104,9 +93,15 @@ export const canManageSettings = (role: AppRole): boolean => isAgencyAdmin(role)
  */
 export const canDeleteRecords = (role: AppRole): boolean => isAgencyManager(role);
 
-/** Only a client administrator may sign off the formal handover acceptance. */
-export const canAcceptHandover = (role: AppRole): boolean => role === 'client_owner';
+/** Any client user may sign off the formal handover acceptance. */
+export const canAcceptHandover = (role: AppRole): boolean => isClientRole(role);
 
-/** Client administrators may invite colleagues into their own organisation. */
-export const canInviteColleagues = (role: AppRole): boolean =>
-  role === 'client_owner' || isAgencyAdmin(role);
+/**
+ * Only the agency issues logins.
+ *
+ * A client administrator could once invite colleagues into their own
+ * organisation. With a single client role there is nobody to distinguish, and
+ * the policies that allowed it went with migration 0018 — so this is now the
+ * agency alone, which is what the brief asked for to begin with.
+ */
+export const canInviteColleagues = (role: AppRole): boolean => isAgency(role);

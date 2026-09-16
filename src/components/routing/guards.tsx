@@ -72,7 +72,7 @@ export function RequireAgencyAdmin() {
 
   if (isLoading) return <FullPageSpinner label="Loading…" />;
   if (!profile) return <Navigate to="/login" replace />;
-  if (profile.role !== 'agency_admin') return <Navigate to="/dashboard" replace />;
+  if (!isAgency(profile.role)) return <Navigate to="/dashboard" replace />;
 
   return <Outlet />;
 }

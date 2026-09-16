@@ -44,7 +44,7 @@ security definer
 set search_path = public
 as $$
   select coalesce(
-    (select u.role not in ('client_owner', 'client_member')
+    (select u.role::text not in ('client_owner', 'client_member')
      from public.users u
      where u.id = auth.uid() and u.is_active and u.deleted_at is null),
     false
@@ -59,7 +59,7 @@ security definer
 set search_path = public
 as $$
   select coalesce(
-    (select u.role = 'agency_admin'
+    (select u.role::text = 'agency_admin'
      from public.users u
      where u.id = auth.uid() and u.is_active and u.deleted_at is null),
     false
@@ -75,7 +75,7 @@ security definer
 set search_path = public
 as $$
   select coalesce(
-    (select u.role in ('agency_admin', 'project_manager')
+    (select u.role::text in ('agency_admin', 'project_manager')
      from public.users u
      where u.id = auth.uid() and u.is_active and u.deleted_at is null),
     false
@@ -90,7 +90,7 @@ security definer
 set search_path = public
 as $$
   select coalesce(
-    (select u.role in ('client_owner', 'client_member')
+    (select u.role::text in ('client_owner', 'client_member')
      from public.users u
      where u.id = auth.uid() and u.is_active and u.deleted_at is null),
     false
@@ -127,7 +127,7 @@ as $$
   where u.id = auth.uid()
     and u.is_active
     and u.deleted_at is null
-    and u.role in ('client_owner', 'client_member')
+    and u.role::text in ('client_owner', 'client_member')
     and c.deleted_at is null;
 $$;
 

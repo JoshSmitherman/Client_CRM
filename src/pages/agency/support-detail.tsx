@@ -9,6 +9,7 @@ import { Card, CardBody, CardHeader } from '@/components/ui/card';
 import { DetailRow } from '@/components/ui/detail-row';
 import { PageHeader } from '@/components/ui/page-header';
 import { Timeline } from '@/components/ui/timeline';
+import { isAgency } from '@/lib/permissions';
 import { useAuth } from '@/lib/auth-context';
 import {
   SUPPORT_CATEGORY_LABELS,
@@ -152,7 +153,7 @@ export function SupportDetailPage() {
                       clientId={ticket.client_id}
                       currentUserId={userId}
                       canWriteInternal
-                      isAdmin={profile.role === 'agency_admin'}
+                      isAdmin={isAgency(profile.role)}
                     />
                   </CardBody>
                 </Card>

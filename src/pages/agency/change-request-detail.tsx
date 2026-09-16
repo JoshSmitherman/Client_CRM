@@ -25,7 +25,7 @@ import {
 import { useQuery } from '@/lib/data/use-query';
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/format';
 import { getInternalNote } from '@/lib/internal-notes';
-import { isAgencyManager } from '@/lib/permissions';
+import { isAgency, isAgencyManager } from '@/lib/permissions';
 import {
   getChangeRequest,
   getChangeRequestAttachments,
@@ -198,7 +198,7 @@ export function ChangeRequestDetailPage() {
                       clientId={request.client_id}
                       currentUserId={userId}
                       canWriteInternal
-                      isAdmin={profile.role === 'agency_admin'}
+                      isAdmin={isAgency(profile.role)}
                     />
                   </CardBody>
                 </Card>
