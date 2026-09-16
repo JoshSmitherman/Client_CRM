@@ -45,6 +45,31 @@ export const ROLE_LABELS: Record<AppRole, string> = {
   client_member: 'Client team member',
 };
 
+/**
+ * The two account types the interface offers.
+ *
+ * The enum behind this still carries seven agency roles and two client ones,
+ * because the brief asked for room to add more later and the policies are
+ * already written against them. But an agency setting this up today chooses
+ * between two things, so those are the two on offer: staff, who work on
+ * projects, and client, who sees their own.
+ *
+ * Everything else remains assignable in the database and displays correctly if
+ * it is set there — nothing has been removed, only hidden from the picker.
+ */
+export const ACCOUNT_TYPES = [
+  {
+    value: 'project_manager' as AppRole,
+    label: 'Staff',
+    description: 'Works on projects. Sees every client, and can delete records.',
+  },
+  {
+    value: 'client_owner' as AppRole,
+    label: 'Client',
+    description: 'Sees only their own organisation — projects, files and requests.',
+  },
+];
+
 export const isAgency = (role: AppRole): boolean => !CLIENT_ROLES.includes(role);
 export const isAgencyAdmin = (role: AppRole): boolean => role === 'agency_admin';
 export const isAgencyManager = (role: AppRole): boolean => MANAGER_ROLES.includes(role);
@@ -71,6 +96,13 @@ export const canApprove = (role: AppRole): boolean => isAgency(role);
 
 /** Settings, maintenance plan configuration, team management, audit log. */
 export const canManageSettings = (role: AppRole): boolean => isAgencyAdmin(role);
+
+/**
+ * Permanent deletion of a client or a project.
+ *
+ * Mirrors the clients_delete and projects_delete policies from migration 0017.
+ */
+export const canDeleteRecords = (role: AppRole): boolean => isAgencyManager(role);
 
 /** Only a client administrator may sign off the formal handover acceptance. */
 export const canAcceptHandover = (role: AppRole): boolean => role === 'client_owner';

@@ -204,3 +204,50 @@ export async function setUserRoleAction(userId: string, role: string): Promise<v
     newValue: { role },
   });
 }
+
+/**
+ * Permanently deletes a login.
+ *
+ * Deactivating is the reversible option and needs nothing special —
+ * setUserActiveAction above does it directly. This is the other one, and it
+ * needs the service role key to remove the authentication record, so it runs
+ * in an Edge Function.
+ *
+ * The cost is real and the interface says so: the profile goes with the
+ * authentication record through a cascade, and every "created by" pointing at
+ * them becomes null. What survives is the audit and activity trail, which
+ * stores names as text rather than references.
+ */
+export async function deleteUserAction(userId: string): Promise<void> {
+  const session = await currentUser();
+  if (!isAgencyAdmin(session.profile.role)) {
+    throw new Error('Only an administrator can delete an account.');
+  }
+  if (userId === session.userId) {
+    throw new Error('You cannot delete your own account.');
+  }
+
+  const { data: result, error } = await supabase.functions.invoke('delete-user', {
+    body: { userId },
+  });
+
+  if (error) {
+    // The function returns a readable message in the body; surface that rather
+    // than "Edge Function returned a non-2xx status code".
+    let message = error.message;
+    try {
+      const body = await (error as { context?: Response }).context?.json();
+      if (body?.error) message = body.error;
+    } catch {
+      // Body was not JSON; the generic message will have to do.
+    }
+    throw new Error(message);
+  }
+
+  if (!result?.ok) {
+    throw new Error(result?.error ?? 'Could not delete the account.');
+  }
+
+  // The Edge Function writes the audit entry, as the caller, before deleting —
+  // so the log still names the person once the account is gone.
+}

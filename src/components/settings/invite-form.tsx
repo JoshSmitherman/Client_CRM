@@ -8,7 +8,7 @@ import { Field, Input, Select, Textarea } from '@/components/ui/field';
 import { FormMessage, SubmitButton } from '@/components/ui/form-status';
 import { sendInvitationAction } from '@/lib/actions/team';
 import { useFormAction } from '@/lib/data/use-form-action';
-import { AGENCY_ROLES, CLIENT_ROLES, ROLE_LABELS } from '@/lib/permissions';
+import { ACCOUNT_TYPES, CLIENT_ROLES } from '@/lib/permissions';
 
 export function InviteForm({
   clients,
@@ -30,13 +30,18 @@ export function InviteForm({
   // Invited from a client record, the useful default is someone who can manage
   // that client's portal — not an agency developer.
   const [role, setRole] = useState<string>(
-    defaultClientId ? 'client_owner' : canInviteAgency ? 'developer' : 'client_member',
+    defaultClientId || !canInviteAgency ? 'client_owner' : 'project_manager',
   );
 
-  const isClientRole = role === 'client_owner' || role === 'client_member';
-  const roleOptions = (canInviteAgency ? [...AGENCY_ROLES, ...CLIENT_ROLES] : CLIENT_ROLES).map(
-    (r) => ({ value: r, label: ROLE_LABELS[r] }),
-  );
+  const isClientRole = CLIENT_ROLES.includes(role as (typeof CLIENT_ROLES)[number]);
+
+  // Someone who can only invite colleagues gets the client option alone.
+  const typeOptions = (canInviteAgency
+    ? ACCOUNT_TYPES
+    : ACCOUNT_TYPES.filter((t) => t.value === 'client_owner')
+  ).map((t) => ({ value: t.value, label: t.label }));
+
+  const chosen = ACCOUNT_TYPES.find((t) => t.value === role);
 
   if (!open) {
     return (
@@ -85,14 +90,19 @@ export function InviteForm({
             {({ id }) => <Input id={id} name="fullName" autoComplete="name" />}
           </Field>
 
-          <Field label="Role" error={state.errors?.role} required>
+          <Field
+            label="Account type"
+            error={state.errors?.role}
+            required
+            hint={chosen?.description}
+          >
             {({ id }) => (
               <Select
                 id={id}
                 name="role"
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
-                options={roleOptions}
+                options={typeOptions}
               />
             )}
           </Field>

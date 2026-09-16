@@ -41,6 +41,10 @@ export const AuditAction = {
   ClientCreated: 'client.created',
   ClientUpdated: 'client.updated',
   ClientDeleted: 'client.deleted',
+  /** Permanent, as opposed to the soft delete above. */
+  ClientPurged: 'client.purged',
+  ProjectPurged: 'project.purged',
+  UserPurged: 'user.deleted',
   ProjectCreated: 'project.created',
   ProjectUpdated: 'project.updated',
   ProjectStageChanged: 'project.stage_changed',

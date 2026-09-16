@@ -1,15 +1,19 @@
-name: Deploy the invitation function
+name: Deploy the Supabase functions
 
-# Publishes supabase/functions/invite-user to your Supabase project.
+# Publishes everything under supabase/functions to your Supabase project.
 #
-# This is the one piece of the application that does not run in the browser.
-# Creating a login needs the service role key, which bypasses every permission
-# rule — so it must never be in a web page. The function holds it instead, and
-# re-checks in the database who the caller is and whom they are allowed to
-# invite before using it.
+# These are the only pieces of the application that do not run in the browser.
+# Both need the service role key, which bypasses every permission rule and so
+# must never be in a web page:
 #
-# Until this is deployed, everything else works; the "Invite someone" button is
-# the only thing that will not.
+#   invite-user   issues a portal or staff login
+#   delete-user   permanently removes one
+#
+# Each verifies the caller's own token first and re-checks their permission
+# against the database before using the key.
+#
+# Until these are deployed everything else works; inviting someone and deleting
+# an account are the only things that will not.
 #
 # Needs two secrets:
 #   SUPABASE_ACCESS_TOKEN   https://supabase.com/dashboard/account/tokens
@@ -31,7 +35,7 @@ on:
 
 jobs:
   deploy:
-    name: Deploy invite-user
+    name: Deploy functions
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -58,5 +62,5 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
-          supabase functions deploy invite-user \
+          supabase functions deploy \
             --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}"

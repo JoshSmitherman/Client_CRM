@@ -580,4 +580,76 @@ select pg_temp.assert(
   'anon still cannot read users');
 
 reset role;
+select set_config('request.jwt.claim.sub', '', false);
+
+-- --------------------------------------------------------------------------
+-- Permanent deletion
+-- --------------------------------------------------------------------------
+-- Migration 0017 widened the delete policies from administrators to project
+-- managers. That is a real increase in blast radius — a cascade takes projects,
+-- files, requests and subscriptions with it — so who can and cannot do it is
+-- worth asserting rather than assuming.
+insert into auth.users (id, email) values
+  ('7d000000-0000-4000-8000-00000000000d', 'dev2@northpoint.test');
+
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+update public.users
+  set role = 'developer', is_active = true,
+      organisation_id = (select organisation_id from public.users
+                         where id = '11111111-1111-4111-8111-111111111111')
+  where id = '7d000000-0000-4000-8000-00000000000d';
+
+-- Put them on the project, so they can genuinely see both records. Deleting
+-- something invisible is a no-op whatever the policy says; the point here is
+-- that seeing it is not the same as being allowed to destroy it.
+insert into public.project_members (project_id, user_id, can_edit)
+values ('d1111111-0000-4000-8000-000000000001',
+        '7d000000-0000-4000-8000-00000000000d', true)
+on conflict do nothing;
+
+-- A developer is agency staff, works on the project, and still may not delete.
+set role authenticated;
+select set_config('request.jwt.claim.sub', '7d000000-0000-4000-8000-00000000000d', false);
+
+select pg_temp.assert(
+  (select count(*) from public.clients where id = 'c1111111-0000-4000-8000-000000000001') = 1,
+  'a developer can see the client they cannot delete');
+
+delete from public.clients where id = 'c1111111-0000-4000-8000-000000000001';
+
+select pg_temp.assert(
+  (select count(*) from public.clients where id = 'c1111111-0000-4000-8000-000000000001') = 1,
+  'a developer cannot delete a client');
+
+delete from public.projects where id = 'd1111111-0000-4000-8000-000000000001';
+
+select pg_temp.assert(
+  (select count(*) from public.projects where id = 'd1111111-0000-4000-8000-000000000001') = 1,
+  'a developer cannot delete a project');
+
+-- A client certainly may not.
+select set_config('request.jwt.claim.sub', '33333333-3333-4333-8333-333333333333', false);
+delete from public.clients where id = 'c1111111-0000-4000-8000-000000000001';
+
+select pg_temp.assert(
+  (select count(*) from public.clients where id = 'c1111111-0000-4000-8000-000000000001') = 1,
+  'a client cannot delete their own organisation record');
+
+-- A project manager can, and the cascade reaches the project.
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+update public.users set role = 'project_manager'
+  where id = '7d000000-0000-4000-8000-00000000000d';
+
+set role authenticated;
+select set_config('request.jwt.claim.sub', '7d000000-0000-4000-8000-00000000000d', false);
+
+delete from public.projects where id = 'd1111111-0000-4000-8000-000000000001';
+
+select pg_temp.assert(
+  (select count(*) from public.projects where id = 'd1111111-0000-4000-8000-000000000001') = 0,
+  'a project manager can delete a project');
+
+reset role;
 \echo 'ALL RLS ASSERTIONS PASSED'

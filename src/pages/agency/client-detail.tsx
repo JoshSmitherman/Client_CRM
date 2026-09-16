@@ -8,14 +8,21 @@ import {
   Pencil,
   Phone,
   Plus,
+  Trash2,
+  UserPlus,
   ShieldCheck,
   Users,
 } from 'lucide-react';
-import { Link, useParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 
-import { RevokeInvitation } from '@/components/settings/revoke-invitation';
-import { InviteForm } from '@/components/settings/invite-form';
+import {
+  PortalAccessDialog,
+  type PortalInvitation,
+  type PortalUser,
+} from '@/components/clients/portal-access-dialog';
 import { QueryBoundary } from '@/components/routing/page-state';
+import { ConfirmDelete } from '@/components/ui/confirm-delete';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -34,10 +41,12 @@ import {
   SUPPORT_STATUS_TONES,
   URGENCY_LABELS,
 } from '@/lib/constants';
+import { deleteClientPermanentlyAction, getClientDeletionImpact, type DeletionImpact } from '@/lib/actions/destroy';
+import { useProfile } from '@/lib/auth-context';
 import { useQuery } from '@/lib/data/use-query';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { getInternalNote } from '@/lib/internal-notes';
-import { ROLE_LABELS } from '@/lib/permissions';
+import { ROLE_LABELS, canDeleteRecords } from '@/lib/permissions';
 import { getClient, getClientOverview } from '@/lib/queries/clients';
 import { useDocumentTitle } from '@/lib/use-document-title';
 import { NotFoundPage } from '@/pages/not-found';
@@ -56,7 +65,27 @@ async function load(id: string) {
 
 export function ClientDetailPage() {
   const { id = '' } = useParams();
+  const navigate = useNavigate();
+  const profile = useProfile();
+  const [accessOpen, setAccessOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [impact, setImpact] = useState<DeletionImpact | null>(null);
+
+  const canDelete = canDeleteRecords(profile.role);
   const query = useQuery(() => load(id), [id]);
+
+  // Counted when the dialog opens rather than on every page load, so the
+  // warning can say "3 projects, 48 files" instead of something vague.
+  useEffect(() => {
+    if (!deleteOpen) return;
+    let cancelled = false;
+    void getClientDeletionImpact(id).then((result) => {
+      if (!cancelled) setImpact(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [deleteOpen, id]);
   useDocumentTitle(query.data?.client.company_name ?? 'Client');
 
   return (
@@ -68,6 +97,9 @@ export function ClientDetailPage() {
         const manager = client.account_manager as unknown as
           | { full_name: string; email: string }
           | null;
+
+        const portalUsers = overview.contacts.users as unknown as PortalUser[];
+        const pendingInvites = overview.contacts.invitations as unknown as PortalInvitation[];
 
         const addressParts = [
           client.address_line1,
@@ -416,35 +448,29 @@ export function ClientDetailPage() {
                     title="Portal access"
                     description="People at this client who can sign in and see their projects"
                     action={
-                      <InviteForm
-                        clients={[{ id, company_name: client.company_name }]}
-                        canInviteAgency
-                        defaultClientId={id}
-                        label="Invite"
-                        variant="secondary"
-                      />
+                      <Button variant="secondary" size="sm" onClick={() => setAccessOpen(true)}>
+                        <Users className="h-3.5 w-3.5" aria-hidden="true" />
+                        Manage
+                      </Button>
                     }
                   />
-                  {overview.contacts.users.length === 0 &&
-                  overview.contacts.invitations.length === 0 ? (
+                  {portalUsers.length === 0 && pendingInvites.length === 0 ? (
                     <EmptyState
                       icon={Users}
                       title="Nobody here can sign in yet"
-                      description="Invite someone at this client and they will get an email to set their own password. They will only ever see this client's work."
+                      description="Invite someone and they will get an email to set their own password. They will only ever see this client's work."
                       action={
-                        <InviteForm
-                          clients={[{ id, company_name: client.company_name }]}
-                          canInviteAgency
-                          defaultClientId={id}
-                          label="Invite someone"
-                        />
+                        <Button onClick={() => setAccessOpen(true)}>
+                          <UserPlus className="h-4 w-4" aria-hidden="true" />
+                          Invite someone
+                        </Button>
                       }
                     />
                   ) : (
                     <ul className="divide-y divide-[var(--border-subtle)]">
-                      {overview.contacts.users.map((user) => (
+                      {portalUsers.map((user) => (
                         <li key={user.id} className="flex items-center gap-3 px-5 py-3">
-                          <Avatar name={user.full_name} size="sm" />
+                          <Avatar name={user.full_name || user.email} size="sm" />
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-[13px] font-medium">
                               {user.full_name || user.email}
@@ -453,10 +479,10 @@ export function ClientDetailPage() {
                               {ROLE_LABELS[user.role]}
                             </p>
                           </div>
-                          {!user.is_active ? <Badge tone="warning">Inactive</Badge> : null}
+                          {!user.is_active ? <Badge tone="warning">No access</Badge> : null}
                         </li>
                       ))}
-                      {overview.contacts.invitations.map((invite) => (
+                      {pendingInvites.map((invite) => (
                         <li key={invite.id} className="flex items-center gap-3 px-5 py-3">
                           <Avatar name={invite.full_name || invite.email} size="sm" />
                           <div className="min-w-0 flex-1">
@@ -468,12 +494,35 @@ export function ClientDetailPage() {
                             </p>
                           </div>
                           <Badge tone="info">Pending</Badge>
-                          <RevokeInvitation invitationId={invite.id} email={invite.email} />
                         </li>
                       ))}
                     </ul>
                   )}
                 </Card>
+
+                <PortalAccessDialog
+                  open={accessOpen}
+                  onClose={() => setAccessOpen(false)}
+                  clientId={id}
+                  clientName={client.company_name}
+                  users={portalUsers}
+                  invitations={pendingInvites}
+                />
+
+                {canDelete ? (
+                  <Card>
+                    <CardHeader
+                      title="Danger zone"
+                      description="Archiving hides a client and keeps everything. Deleting does not."
+                    />
+                    <CardBody>
+                      <Button variant="danger" onClick={() => setDeleteOpen(true)}>
+                        <Trash2 className="h-4 w-4" aria-hidden="true" />
+                        Delete this client
+                      </Button>
+                    </CardBody>
+                  </Card>
+                ) : null}
 
                 {internalNote ? (
                   <Card>
@@ -487,9 +536,38 @@ export function ClientDetailPage() {
                 ) : null}
               </div>
             </div>
+
+            <ConfirmDelete
+              open={deleteOpen}
+              onClose={() => setDeleteOpen(false)}
+              title={`Delete ${client.company_name}`}
+              confirmationText={client.company_name}
+              confirmLabel="Delete this client"
+              consequences={deletionConsequences(impact)}
+              onConfirm={async () => {
+                await deleteClientPermanentlyAction(id);
+                navigate('/clients');
+              }}
+            />
           </>
         );
       }}
     </QueryBoundary>
   );
+}
+
+/** Turns the counts into something specific enough to be read properly. */
+function deletionConsequences(impact: DeletionImpact | null): string[] {
+  if (!impact) return ['Working out what this would remove…'];
+
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+  return [
+    `${plural(impact.projects, 'project', 'projects')}, with their tasks, content, comments and handover.`,
+    `${plural(impact.files, 'file', 'files')}, deleted from storage as well as from the record.`,
+    `${plural(impact.changeRequests, 'change request', 'change requests')} and ${plural(impact.supportRequests, 'support ticket', 'support tickets')}, including their quotations and history.`,
+    `${plural(impact.subscriptions, 'maintenance subscription', 'maintenance subscriptions')}, with the usage recorded against them.`,
+    'Portal logins for this client stop working.',
+    'The audit log keeps a record that this happened, and who did it.',
+  ];
 }
