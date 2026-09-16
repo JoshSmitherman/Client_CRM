@@ -36,39 +36,44 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.secrets.outputs.ready }}
     steps:
       - uses: actions/checkout@v4
 
+      # Before the keys are added this cannot build anything useful, but it is
+      # not a failure — it is step 3 of the setup guide not being done yet.
+      # Saying so and stopping keeps the repository green for someone who has
+      # only just cloned it.
       - name: Check the secrets are present
+        id: secrets
         run: |
-          missing=0
-          if [ -z "${{ secrets.VITE_SUPABASE_URL }}" ]; then
-            echo "::error::VITE_SUPABASE_URL is not set."; missing=1
-          fi
-          if [ -z "${{ secrets.VITE_SUPABASE_ANON_KEY }}" ]; then
-            echo "::error::VITE_SUPABASE_ANON_KEY is not set."; missing=1
-          fi
-          if [ "$missing" = "1" ]; then
-            echo "Add them under Settings -> Secrets and variables -> Actions."
-            echo "See docs/GITHUB-SETUP.md."
-            exit 1
+          if [ -z "${{ secrets.VITE_SUPABASE_URL }}" ] || [ -z "${{ secrets.VITE_SUPABASE_ANON_KEY }}" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Not deploying yet — VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are not set. Add them under Settings > Secrets and variables > Actions (step 3 of docs/GITHUB-SETUP.md), then run this again."
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
           fi
 
       - uses: actions/setup-node@v4
+        if: steps.secrets.outputs.ready == 'true'
         with:
           node-version: 22
           cache: npm
 
       - run: npm ci
+        if: steps.secrets.outputs.ready == 'true'
 
       - name: Configure Pages
         id: pages
+        if: steps.secrets.outputs.ready == 'true'
         uses: actions/configure-pages@v5
 
       # A project site is served from /<repo>/, so every asset and route has to
       # be built with that prefix. base_path comes back empty for a user or
       # organisation site served from the domain root.
       - name: Build
+        if: steps.secrets.outputs.ready == 'true'
         run: npm run build
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
@@ -76,17 +81,21 @@ jobs:
           BASE_PATH: ${{ steps.pages.outputs.base_path && format('{0}/', steps.pages.outputs.base_path) || '/' }}
 
       # Pages serves files literally, so a request for /clients would 404.
-      # public/404.html records the path and hands it back to the router.
+      # The 404.html emitted by vite.config.ts records the address and hands it
+      # back to the router.
       - name: Check the single-page fallback shipped
+        if: steps.secrets.outputs.ready == 'true'
         run: test -f dist/404.html
 
       - uses: actions/upload-pages-artifact@v3
+        if: steps.secrets.outputs.ready == 'true'
         with:
           path: dist
 
   deploy:
     name: Publish
     needs: build
+    if: needs.build.outputs.ready == 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

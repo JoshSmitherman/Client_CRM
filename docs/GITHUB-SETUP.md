@@ -180,6 +180,10 @@ To watch it, or to run it again by hand:
 3. To run it again: click **Run workflow** (right-hand side), choose the branch,
    and click the green **Run workflow** button. It takes about a minute.
 
+> **If the run says "Not deploying yet"**, the keys from step 3 are missing.
+> The workflow says so and stops rather than failing, so add them and run it
+> again.
+
 > The **Run workflow** button only appears once this workflow file exists on
 > your default branch. Until then, the automatic run on each push is what
 > publishes the site.

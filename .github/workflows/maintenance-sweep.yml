@@ -29,19 +29,24 @@ jobs:
     name: Run the sweep
     runs-on: ubuntu-latest
     steps:
+      # This runs on a schedule, so an unconfigured repository would otherwise
+      # send a failure notice every morning for something nobody asked for yet.
       - name: Check the secret is present
+        id: secrets
         run: |
           if [ -z "${{ secrets.SUPABASE_DB_URL }}" ]; then
-            echo "::error::SUPABASE_DB_URL is not set."
-            echo "Add it under Settings -> Secrets and variables -> Actions."
-            echo "See docs/GITHUB-SETUP.md."
-            exit 1
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Nothing to sweep — SUPABASE_DB_URL is not set. Add it under Settings > Secrets and variables > Actions (step 4 of docs/GITHUB-SETUP.md)."
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Install the Postgres client
+        if: steps.secrets.outputs.ready == 'true'
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
 
       - name: Sweep
+        if: steps.secrets.outputs.ready == 'true'
         env:
           DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |

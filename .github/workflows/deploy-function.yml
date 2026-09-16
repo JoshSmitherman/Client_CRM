@@ -36,26 +36,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Not configured yet is step 7 of the setup guide not being done, not a
+      # failure. Everything except the "Invite someone" button works without it.
       - name: Check the secrets are present
+        id: secrets
         run: |
-          missing=0
-          if [ -z "${{ secrets.SUPABASE_ACCESS_TOKEN }}" ]; then
-            echo "::error::SUPABASE_ACCESS_TOKEN is not set."; missing=1
-          fi
-          if [ -z "${{ secrets.SUPABASE_PROJECT_REF }}" ]; then
-            echo "::error::SUPABASE_PROJECT_REF is not set."; missing=1
-          fi
-          if [ "$missing" = "1" ]; then
-            echo "Add them under Settings -> Secrets and variables -> Actions."
-            echo "See docs/GITHUB-SETUP.md."
-            exit 1
+          if [ -z "${{ secrets.SUPABASE_ACCESS_TOKEN }}" ] || [ -z "${{ secrets.SUPABASE_PROJECT_REF }}" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Not deploying yet — SUPABASE_ACCESS_TOKEN and SUPABASE_PROJECT_REF are not set. Add them under Settings > Secrets and variables > Actions (step 7 of docs/GITHUB-SETUP.md), then run this again."
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
           fi
 
       - uses: supabase/setup-cli@v1
+        if: steps.secrets.outputs.ready == 'true'
         with:
           version: latest
 
       - name: Deploy
+        if: steps.secrets.outputs.ready == 'true'
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
