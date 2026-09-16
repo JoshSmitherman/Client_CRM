@@ -13,13 +13,25 @@ import { AGENCY_ROLES, CLIENT_ROLES, ROLE_LABELS } from '@/lib/permissions';
 export function InviteForm({
   clients,
   canInviteAgency,
+  /** Pre-selected when invited from a client's own record. */
+  defaultClientId,
+  label = 'Invite someone',
+  variant = 'primary',
 }: {
   clients: { id: string; company_name: string }[];
   canInviteAgency: boolean;
+  defaultClientId?: string;
+  label?: string;
+  variant?: 'primary' | 'secondary';
 }) {
   const [state, action] = useFormAction(sendInvitationAction);
   const [open, setOpen] = useState(false);
-  const [role, setRole] = useState<string>(canInviteAgency ? 'developer' : 'client_member');
+
+  // Invited from a client record, the useful default is someone who can manage
+  // that client's portal — not an agency developer.
+  const [role, setRole] = useState<string>(
+    defaultClientId ? 'client_owner' : canInviteAgency ? 'developer' : 'client_member',
+  );
 
   const isClientRole = role === 'client_owner' || role === 'client_member';
   const roleOptions = (canInviteAgency ? [...AGENCY_ROLES, ...CLIENT_ROLES] : CLIENT_ROLES).map(
@@ -28,9 +40,9 @@ export function InviteForm({
 
   if (!open) {
     return (
-      <Button onClick={() => setOpen(true)}>
+      <Button variant={variant} onClick={() => setOpen(true)}>
         <UserPlus className="h-4 w-4" aria-hidden="true" />
-        Invite someone
+        {label}
       </Button>
     );
   }
@@ -51,8 +63,9 @@ export function InviteForm({
           <FormMessage state={state} />
 
           <Alert variant="info">
-            Accounts can only be created by invitation. Anyone who signs up without one gets an
-            account with no access at all.
+            {isClientRole
+              ? 'They receive an email with a link to set their own password, and can only ever see this one client — their projects, files, requests and messages. Internal notes and other clients stay invisible to them.'
+              : 'Agency staff can also register themselves with an approved work email address. Invite them here to skip that, or to give someone a role their domain would not grant.'}
           </Alert>
 
           <Field label="Email address" error={state.errors?.email} required>
@@ -97,6 +110,7 @@ export function InviteForm({
                   name="clientId"
                   required
                   placeholder="Choose a client"
+                  defaultValue={defaultClientId}
                   aria-describedby={describedBy}
                   aria-invalid={invalid}
                   options={clients.map((c) => ({ value: c.id, label: c.company_name }))}

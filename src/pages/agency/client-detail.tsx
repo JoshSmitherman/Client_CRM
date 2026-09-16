@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 
+import { RevokeInvitation } from '@/components/settings/revoke-invitation';
+import { InviteForm } from '@/components/settings/invite-form';
 import { QueryBoundary } from '@/components/routing/page-state';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -411,15 +413,32 @@ export function ClientDetailPage() {
 
                 <Card>
                   <CardHeader
-                    title="Portal users"
-                    description="People who can sign in to the client portal"
+                    title="Portal access"
+                    description="People at this client who can sign in and see their projects"
+                    action={
+                      <InviteForm
+                        clients={[{ id, company_name: client.company_name }]}
+                        canInviteAgency
+                        defaultClientId={id}
+                        label="Invite"
+                        variant="secondary"
+                      />
+                    }
                   />
                   {overview.contacts.users.length === 0 &&
                   overview.contacts.invitations.length === 0 ? (
                     <EmptyState
                       icon={Users}
-                      title="No portal users"
-                      description="Invite a contact so they can access their portal."
+                      title="Nobody here can sign in yet"
+                      description="Invite someone at this client and they will get an email to set their own password. They will only ever see this client's work."
+                      action={
+                        <InviteForm
+                          clients={[{ id, company_name: client.company_name }]}
+                          canInviteAgency
+                          defaultClientId={id}
+                          label="Invite someone"
+                        />
+                      }
                     />
                   ) : (
                     <ul className="divide-y divide-[var(--border-subtle)]">
@@ -449,6 +468,7 @@ export function ClientDetailPage() {
                             </p>
                           </div>
                           <Badge tone="info">Pending</Badge>
+                          <RevokeInvitation invitationId={invite.id} email={invite.email} />
                         </li>
                       ))}
                     </ul>

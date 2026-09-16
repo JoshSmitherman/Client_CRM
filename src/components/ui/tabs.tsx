@@ -15,8 +15,24 @@ export interface TabItem {
  */
 export function Tabs({ items, className }: { items: TabItem[]; className?: string }) {
   const pathname = useLocation().pathname;
-  const search = useSearchParams();
+  const [search] = useSearchParams();
   const current = search.toString() ? `${pathname}?${search}` : pathname;
+
+  /**
+   * The longest matching href wins.
+   *
+   * An index tab's href is a prefix of every sibling's — /projects/:id is a
+   * prefix of /projects/:id/planning — so a plain "starts with" test lights up
+   * Overview on every tab. Taking the longest match picks Planning there, and
+   * still picks Content on /projects/:id/content/:pageId, where there is no
+   * tab for the exact path.
+   */
+  const activeHref = items
+    .filter((item) => current === item.href || current.startsWith(`${item.href}/`))
+    .reduce<string | null>(
+      (best, item) => (best === null || item.href.length > best.length ? item.href : best),
+      null,
+    );
 
   return (
     <nav
@@ -27,7 +43,7 @@ export function Tabs({ items, className }: { items: TabItem[]; className?: strin
       aria-label="Section"
     >
       {items.map((item) => {
-        const active = current === item.href || (item.href !== pathname && current.startsWith(`${item.href}/`));
+        const active = item.href === activeHref;
         return (
           <Link
             key={item.href}

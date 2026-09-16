@@ -6,7 +6,7 @@ your computer.
 
 **Total time: about 20 minutes.** Most of it is waiting for Supabase.
 
-There are eight steps:
+There are nine steps:
 
 1. [Create a Supabase project](#step-1--create-a-supabase-project)
 2. [Copy your keys](#step-2--copy-your-keys)
@@ -14,8 +14,9 @@ There are eight steps:
 4. [Create the database tables](#step-4--create-the-database-tables)
 5. [Put the site on the internet](#step-5--put-the-site-on-the-internet)
 6. [Allow the sign-in links](#step-6--allow-the-sign-in-links)
-7. [Turn on invitations](#step-7--turn-on-invitations)
-8. [Create your first login](#step-8--create-your-first-login)
+7. [Send email through your own provider](#step-6b--send-email-through-your-own-provider)
+8. [Turn on invitations](#step-7--turn-on-invitations)
+9. [Create your first login](#step-8--create-your-first-login)
 
 ---
 
@@ -222,6 +223,48 @@ common reason invitations appear broken.
    ```
 5. Click **Save**
 
+> **This is the step that breaks invitations.** If the redirect list does not
+> cover your address, Supabase quietly falls back to the **Site URL** instead —
+> so an invitation email sent while Site URL still says `localhost` lands the
+> person on a "site cannot be reached" page. The link itself was fine; it was
+> pointed at a computer that is not theirs.
+
+---
+
+## Step 6b — Send email through your own provider
+
+Supabase's built-in email is for testing only. It is rate limited to a handful
+of messages an hour, shared across confirmations, invitations and password
+resets, and it will start refusing:
+
+```
+Failed to make POST request to ".../auth/v1/recover".
+Error message: email rate limit exceeded
+```
+
+That is not a fault — it is the limit doing its job. An agency inviting clients
+will hit it on the first busy afternoon, so set up your own sender before you
+invite anyone real.
+
+1. Create an account with an email provider. [Resend](https://resend.com) has a
+   free tier and takes about five minutes;
+   [Postmark](https://postmarkapp.com), [SendGrid](https://sendgrid.com) and
+   Amazon SES all work the same way.
+2. Verify the domain you will send from — your agency's, not a personal
+   address. Their setup wizard walks you through the DNS records.
+3. Generate an SMTP username and password.
+4. Open **<https://supabase.com/dashboard/project/_/settings/auth>**, find
+   **SMTP Settings**, and turn on **Enable Custom SMTP**.
+5. Fill in the host, port, username and password from step 3, plus the sender
+   name and address people will see.
+6. Save.
+
+While you are on that page, **Email Templates** is worth a minute: the default
+invitation email says "You have been invited", with no mention of who you are.
+
+> Until this is done, expect roughly 2–4 emails per hour in total. If you are
+> mid-test and hit the limit, waiting an hour clears it.
+
 ---
 
 ## Step 7 — Turn on invitations
@@ -359,6 +402,17 @@ Check the names at
 **<https://github.com/JoshSmitherman/Client_CRM/settings/secrets/actions>** —
 they are case-sensitive and a stray space at the start or end of a pasted value
 will break them. If in doubt, delete the secret and add it again.
+
+**An invitation link opens a localhost page, or "site cannot be reached".**
+The Supabase **Site URL** is still `http://localhost:3000`, and your real
+address is not in the redirect list — so Supabase fell back to the Site URL.
+Fix both at
+**<https://supabase.com/dashboard/project/_/auth/url-configuration>** (step 6),
+then send the invitation again. The old link cannot be repaired.
+
+**"Email rate limit exceeded".**
+Supabase's built-in email allows only a few messages an hour. Set up your own
+SMTP sender — step 6b. Waiting an hour clears it in the meantime.
 
 **An invitation or reset link says it has expired.**
 Either the address is not in the Redirect URLs list (step 6), or the invitation
