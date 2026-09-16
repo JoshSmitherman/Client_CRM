@@ -4,23 +4,25 @@ A secure client portal and project workspace for a web development agency —
 onboarding, planning, files, approvals, change requests, support, maintenance
 subscriptions and website handover in one place.
 
-Next.js (App Router) · React · TypeScript · Tailwind CSS · Supabase (Postgres, Auth, Storage) · Vercel-ready.
+React · TypeScript · Vite · React Router · Tailwind CSS · Supabase (Postgres, Auth, Storage, Edge Functions).
+A static single-page app — it runs on GitHub Pages.
 
 ---
 
 ## Getting started
 
-**Nothing to install.** Six steps, all in your browser, about 15 minutes:
+**Nothing to install.** Eight steps, all in your browser, about 20 minutes:
 
 | # | Step | Where |
 |---|---|---|
 | 1 | Create a Supabase project | [supabase.com/dashboard/new](https://supabase.com/dashboard/new) |
-| 2 | Copy your three keys | [Project Settings → API](https://supabase.com/dashboard/project/_/settings/api) |
+| 2 | Copy your keys | [Project Settings → API](https://supabase.com/dashboard/project/_/settings/api) |
 | 3 | Add them as GitHub secrets | [Settings → Secrets → Actions](https://github.com/JoshSmitherman/Client_CRM/settings/secrets/actions/new) |
 | 4 | Create the tables — paste one SQL file | [supabase/setup.sql](https://github.com/JoshSmitherman/Client_CRM/blob/claude/inspiring-allen-snxv3i/supabase/setup.sql) → [SQL Editor](https://supabase.com/dashboard/project/_/sql/new) |
-| 5 | Allow the sign-in links | [Auth → URL Configuration](https://supabase.com/dashboard/project/_/auth/url-configuration) |
-| 6 | Create your first login | Visit `/signup` — the first account becomes the administrator |
-| 7 | Deploy it | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) — **not GitHub Pages**, see why |
+| 5 | Turn on GitHub Pages | [Settings → Pages](https://github.com/JoshSmitherman/Client_CRM/settings/pages) — source: **GitHub Actions** |
+| 6 | Allow the sign-in links | [Auth → URL Configuration](https://supabase.com/dashboard/project/_/auth/url-configuration) |
+| 7 | Turn on invitations | [Deploy the invitation function](https://github.com/JoshSmitherman/Client_CRM/actions/workflows/deploy-function.yml) |
+| 8 | Create your first login | Visit `/signup` — the first account becomes the administrator |
 
 **→ [docs/GITHUB-SETUP.md](docs/GITHUB-SETUP.md) has each step written out in
 full, with a link for every click.**
@@ -31,7 +33,7 @@ full, with a link for every click.**
 ```bash
 npm install
 cp .env.example .env.local          # fill in your Supabase keys
-npm run dev
+npm run dev                         # http://localhost:5173
 ```
 
 For the database, either paste
@@ -44,6 +46,9 @@ npx supabase login
 npx supabase link --project-ref <your-project-ref>
 npx supabase db push
 node scripts/seed-demo.mjs          # demo logins and a book of work
+
+# Only needed for the "Invite someone" button; everything else works without it.
+npx supabase functions deploy invite-user --project-ref <your-project-ref>
 ```
 
 [docs/SETUP.md](docs/SETUP.md) is the detailed local walkthrough. Without
@@ -55,7 +60,7 @@ Supabase credentials the app shows a setup screen rather than an error.
 
 | Area | State |
 |---|---|
-| Database schema, RLS, audit, storage policies | Complete, verified by 27 assertions in CI |
+| Database schema, RLS, audit, storage policies | Complete, verified by 47 assertions in CI |
 | Authentication: staff self-registration, client invitations, route guards | Complete |
 | Design system, app shells, light/dark, mobile | Complete |
 | **Agency** — dashboard, clients, projects | Complete |
@@ -69,7 +74,7 @@ Supabase credentials the app shows a setup screen rather than an error.
 | **Client portal** — change requests, quote approval, support | Complete |
 | **Client portal** — files, maintenance, messages, handover acceptance | Complete |
 | Notifications, activity feed, progress tracking | Complete |
-| Renewal reminder sweep endpoint | Complete |
+| Renewal reminder sweep (scheduled workflow + on every Maintenance visit) | Complete |
 | Email notifications, Stripe billing, calendar/Slack integrations | Not built — see Future phases |
 
 ### Future phases
@@ -103,7 +108,7 @@ through the Supabase dashboard.
 
 Row Level Security is the boundary, not the UI.
 
-- RLS is enabled **and forced** on all 40 tables.
+- RLS is enabled **and forced** on all 41 tables.
 - Access is decided by SQL predicates (`can_access_project`,
   `can_access_client`, `can_edit_project`) that also govern storage objects, so
   a leaked object key is useless without an authorised session.
@@ -115,10 +120,18 @@ Row Level Security is the boundary, not the UI.
   change request straight to "approved".
 - Internal comments are excluded in the SELECT policy itself, not by an
   application filter.
+- Agency-only free text lives in `internal_notes`, a table with **no client
+  policy at all**, rather than as columns on rows a client may read — because
+  RLS restricts rows, not columns, and a hidden column is still readable
+  straight from the API.
 - `audit_logs` has no insert, update or delete policy for anyone; rows arrive
   only through `record_audit()`.
-- The service role key is read in exactly one module, which begins with
-  `import 'server-only'` — importing it into browser code is a build error.
+- The service role key never reaches the browser. The one operation that needs
+  it — issuing a login — runs in a Supabase Edge Function that verifies the
+  caller's token and re-checks in the database who may invite whom.
+- The anon key *is* in the bundle, by design. It identifies the project and
+  grants nothing; a signed-out visitor holding it can reach no row of any
+  table, which is one of the 47 assertions.
 
 ### Verifying it
 
@@ -131,11 +144,11 @@ This also runs on every push. See the **CI** workflow.
 
 Applies every migration twice to a throwaway Postgres database — then the
 generated `setup.sql` twice, since that file is pasted in by hand and a retry
-after a half-finished run is normal — and runs **27 Row Level Security
-assertions** covering tenant isolation,
-internal-comment visibility, cross-tenant writes, column guards, state
-transitions, privilege escalation, audit-log immutability, agency member
-scoping and anonymous access.
+after a half-finished run is normal — and runs **47 Row Level Security
+assertions** covering tenant isolation, internal notes and comments,
+cross-tenant writes, column guards, state transitions, privilege escalation,
+audit-log immutability, agency member scoping, the staff signup ladder and
+anonymous access.
 
 ---
 
@@ -143,11 +156,11 @@ scoping and anonymous access.
 
 | Command | Purpose |
 |---|---|
-| `npm run dev` | Development server |
-| `npm run build` | Production build |
+| `npm run dev` | Development server on port 5173 |
+| `npm run build` | Typecheck, then build to `dist/` |
+| `npm run preview` | Serve `dist/` locally, as it will be deployed |
 | `npm run typecheck` | TypeScript, no emit |
 | `npm run lint` | ESLint |
-| `npm run db:push` | Push migrations to the linked Supabase project |
 | `node scripts/generate-types.mjs` | Regenerate `database.types.ts` from a live schema |
 | `node scripts/seed-demo.mjs` | Create demo logins and data |
 | `node scripts/seed-demo.mjs --reset` | Wipe demo rows and re-seed |
@@ -160,26 +173,30 @@ scoping and anonymous access.
 
 ```
 src/
-  app/(auth)      login, invite acceptance, password reset
-  app/(agency)    dashboard, clients, projects, change requests, support,
+  App.tsx         65 routes, each page loaded on demand
+  pages/auth      sign in, sign up, invite acceptance, password reset
+  pages/agency    dashboard, clients, projects, change requests, support,
                   maintenance, tasks, files, notifications, settings
-  app/(portal)    the client-facing portal
+  pages/portal    the client-facing portal
   components/ui   design system primitives
   components/*    one folder per domain
-  lib/actions     Server Actions — validate, authorise, mutate, audit, notify
-  lib/queries     typed read helpers for Server Components
-  lib/validation  zod schemas shared by forms and actions
+  lib/actions     mutations — validate, authorise, write, audit, notify
+  lib/queries     typed read helpers
+  lib/data        useQuery, useFormAction, revalidation
+  lib/validation  zod schemas shared by forms and mutations
 supabase/
-  migrations/     0001 … 0013, applied by the Supabase CLI
+  migrations/     0001 … 0016, applied by the Supabase CLI
+  functions/      invite-user — the only code that is not in the browser
   seed.sql        agency-configurable reference data
   setup.sql       generated: every migration + the seed, as one pasteable file
-.github/workflows CI, database setup, demo seeding, deployment
+.github/workflows CI, Pages deployment, database setup, function deployment,
+                  demo seeding, the daily maintenance sweep
 scripts/          type generation, schema verification, demo seed
-docs/             ARCHITECTURE.md, SETUP.md
+docs/             ARCHITECTURE.md, SETUP.md, GITHUB-SETUP.md, DEPLOYMENT.md
 ```
 
 ## Rebranding
 
 Everything visual is in `src/config/brand.ts` (name, tagline, initials, colour)
-and the token block at the top of `src/app/globals.css`. Values that should
+and the token block at the top of `src/styles.css`. Values that should
 differ per deployment without a rebuild live in the `agency_settings` table.

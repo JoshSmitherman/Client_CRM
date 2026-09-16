@@ -5,7 +5,7 @@ application on your own Supabase project.
 
 > **Prefer not to install anything?** [docs/GITHUB-SETUP.md](GITHUB-SETUP.md)
 > does the same job entirely in the browser, with a direct link for every click:
-> add three repository secrets, paste one SQL file, run a workflow. Come back
+> add a few repository secrets, paste one SQL file, turn Pages on. Come back
 > here if you want it running locally.
 
 Nothing here requires you to share credentials with anyone. Keys stay in your
@@ -46,7 +46,7 @@ dashboard URL after `/project/`, e.g. in
 ### The quick way — one SQL file
 
 Open [`supabase/setup.sql`](../supabase/setup.sql), copy the whole thing, and
-run it at <https://supabase.com/dashboard/project/_/sql/new>. That is the entire database: 40 tables, the permission
+run it at <https://supabase.com/dashboard/project/_/sql/new>. That is the entire database: 41 tables, the permission
 functions, every Row Level Security policy, the guard triggers, the storage
 bucket and the reference data. It is safe to run more than once.
 
@@ -64,7 +64,7 @@ npx supabase db push        # applies supabase/migrations/*.sql in order
 
 `db push` will ask for the database password from step 2.
 
-This creates 40 tables, 34 enum types, the permission functions, all Row Level
+This creates 41 tables, 34 enum types, the permission functions, all Row Level
 Security policies, the column guard triggers and the private storage bucket.
 
 `db push` applies the migrations but not the seed, so load the reference data
@@ -82,8 +82,8 @@ Open <https://supabase.com/dashboard/project/_/settings/api> and copy:
 
 | Dashboard field | Goes into |
 |---|---|
-| Project URL | `NEXT_PUBLIC_SUPABASE_URL` |
-| `anon` `public` key | `NEXT_PUBLIC_SUPABASE_ANON_KEY` |
+| Project URL | `VITE_SUPABASE_URL` |
+| `anon` `public` key | `VITE_SUPABASE_ANON_KEY` |
 | `service_role` `secret` key | `SUPABASE_SERVICE_ROLE_KEY` |
 
 ```bash
@@ -93,19 +93,22 @@ cp .env.example .env.local
 Then edit `.env.local`:
 
 ```ini
-NEXT_PUBLIC_SUPABASE_URL=https://<your-ref>.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOi...
+VITE_SUPABASE_URL=https://<your-ref>.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGciOi...
+
+# Not used by the application. Only scripts/seed-demo.mjs reads this.
 SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOi...
-NEXT_PUBLIC_SITE_URL=http://localhost:3000
-REMINDER_SWEEP_SECRET=<any long random string>
 ```
 
-**About the two keys.** The anon key is *designed* to be public — it can only
-reach what Row Level Security allows, which for a signed-out visitor is nothing.
-The service role key bypasses RLS entirely. It is read only inside
-`src/lib/supabase/admin.ts`, which starts with `import 'server-only'`, so
-importing it into browser code is a build error rather than a silent leak.
-Never give it a `NEXT_PUBLIC_` prefix and never commit it.
+**About the two keys.** The anon key is *designed* to be public — it is compiled
+into the bundle, and can only reach what Row Level Security allows, which for a
+signed-out visitor is nothing.
+
+The service role key bypasses Row Level Security entirely. Nothing under `src/`
+reads it, and `VITE_` is the only prefix Vite exposes to the browser, so a key
+without that prefix cannot end up in the bundle by accident. It is used by the
+demo seed script here, and by the `invite-user` Edge Function in production.
+Never rename it with a `VITE_` prefix, and never commit it.
 
 ---
 
@@ -113,10 +116,13 @@ Never give it a `NEXT_PUBLIC_` prefix and never commit it.
 
 Open <https://supabase.com/dashboard/project/_/auth/url-configuration>:
 
-- **Site URL**: `http://localhost:3000` (your production domain later)
+- **Site URL**: `http://localhost:5173` (your production address later)
 - **Redirect URLs**: add both
-  - `http://localhost:3000/auth/callback`
-  - `https://your-production-domain.com/auth/callback`
+  - `http://localhost:5173/**`
+  - `https://your-production-address/**`
+
+The `**` matters: invitation and password-reset links return people to a
+specific page, and Supabase refuses any address not covered here.
 
 Invitation and password-reset links will not work until these are set.
 
@@ -154,31 +160,55 @@ node scripts/seed-demo.mjs --admin-only --email you@youragency.com
 npm run dev
 ```
 
-Open <http://localhost:3000>.
+Open <http://localhost:5173>.
+
+To check what will actually be deployed:
+
+```bash
+npm run build && npm run preview
+```
 
 ---
 
-## Deploying to Vercel
+## 8. Invitations, locally
 
-1. Import the repository at <https://vercel.com/new>.
-2. Add the same four environment variables in **Settings → Environment
-   Variables**, with `NEXT_PUBLIC_SITE_URL` set to your Vercel domain.
-3. Add `https://<your-domain>/auth/callback` to the Supabase redirect URLs.
-4. Deploy.
+**Settings → Team → Invite someone** calls a Supabase Edge Function, because
+issuing a login needs the service role key and that must never be in a browser
+bundle. Everything else works without it.
+
+Deploy it to your project once:
+
+```bash
+npx supabase login
+npx supabase functions deploy invite-user --project-ref <your-project-ref>
+```
+
+Nothing to configure afterwards — Supabase provides the function with its own
+`SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY`.
+
+---
+
+## Deploying
+
+[docs/DEPLOYMENT.md](DEPLOYMENT.md) covers the options;
+[docs/GITHUB-SETUP.md](GITHUB-SETUP.md) walks through GitHub Pages click by
+click. The build is `npm run build`, the output is `dist/`, and the only two
+build-time variables are `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
 
 ### Renewal reminders
 
-`POST /api/reminders/sweep` moves subscriptions into `renewal_due`, expires
-lapsed ones, and surfaces reminders that have reached their notification
-window. It is idempotent, so it is safe to run as often as you like.
+`public.sweep_maintenance_state()` moves subscriptions into `renewal_due`,
+expires lapsed ones, and surfaces reminders that have reached their
+notification window. It is idempotent, so it is safe to run as often as you
+like.
 
-Add to `vercel.json` to run it daily:
+The Maintenance screen calls it whenever an agency user opens it, and
+`.github/workflows/maintenance-sweep.yml` calls it daily. Any cron that can
+reach the database works just as well:
 
-```json
-{ "crons": [{ "path": "/api/reminders/sweep", "schedule": "0 7 * * *" }] }
+```bash
+psql "$SUPABASE_DB_URL" -c "select public.sweep_maintenance_state()"
 ```
-
-The endpoint requires `Authorization: Bearer $REMINDER_SWEEP_SECRET`.
 
 ---
 
@@ -194,10 +224,10 @@ run the security assertions against a throwaway database:
 
 It applies `scripts/supabase-stubs.sql` (stand-ins for the parts Supabase
 provides), then every migration **twice**, then the generated `setup.sql`
-twice, then 27 Row Level Security assertions covering tenant isolation,
-internal-comment visibility, cross-tenant writes, column guards,
+twice, then 47 Row Level Security assertions covering tenant isolation,
+internal notes and comments, cross-tenant writes, column guards,
 change-request state transitions, privilege escalation, audit-log immutability,
-agency member scoping and anonymous access.
+agency member scoping, the staff signup ladder and anonymous access.
 
 The same thing runs on every push — see the **CI** workflow.
 
@@ -218,12 +248,15 @@ people paste can never drift from the source.
 
 ## Troubleshooting
 
-**"Finish setting up" screen appears.** `NEXT_PUBLIC_SUPABASE_URL` or
-`NEXT_PUBLIC_SUPABASE_ANON_KEY` is missing from `.env.local`. Restart the dev
-server after editing it — Next.js reads env files at startup.
+**"Finish setting up" screen appears.** `VITE_SUPABASE_URL` or
+`VITE_SUPABASE_ANON_KEY` is missing from `.env.local`. Restart the dev server
+after editing it — Vite reads env files at startup.
 
 **Invitation link says it has expired.** The redirect URL is not in the Supabase
 allow-list (step 5), or the invitation is genuinely older than 14 days.
+
+**"Invite someone" returns an error about the Edge Function.** It has not been
+deployed to your project — see step 8.
 
 **"Your account is not active yet" after signing in.** The account was created
 without a matching invitation, so it deliberately has no organisation and no

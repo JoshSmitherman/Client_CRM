@@ -16,7 +16,9 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    # The development branch is listed so the site can go live before the work
+    # is merged. Once it is on main, delete that second line.
+    branches: [main, claude/inspiring-allen-snxv3i]
   workflow_dispatch:
 
 # Allows the workflow to publish to Pages.

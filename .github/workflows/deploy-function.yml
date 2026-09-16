@@ -1,0 +1,63 @@
+name: Deploy the invitation function
+
+# Publishes supabase/functions/invite-user to your Supabase project.
+#
+# This is the one piece of the application that does not run in the browser.
+# Creating a login needs the service role key, which bypasses every permission
+# rule — so it must never be in a web page. The function holds it instead, and
+# re-checks in the database who the caller is and whom they are allowed to
+# invite before using it.
+#
+# Until this is deployed, everything else works; the "Invite someone" button is
+# the only thing that will not.
+#
+# Needs two secrets:
+#   SUPABASE_ACCESS_TOKEN   https://supabase.com/dashboard/account/tokens
+#   SUPABASE_PROJECT_REF    The part of your project URL before .supabase.co
+#
+# Nothing else needs configuring: Supabase provides SUPABASE_URL,
+# SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY to the function itself.
+#
+# See docs/GITHUB-SETUP.md.
+
+on:
+  push:
+    # See the note in pages.yml about the development branch.
+    branches: [main, claude/inspiring-allen-snxv3i]
+    paths:
+      - 'supabase/functions/**'
+      - '.github/workflows/deploy-function.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy invite-user
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the secrets are present
+        run: |
+          missing=0
+          if [ -z "${{ secrets.SUPABASE_ACCESS_TOKEN }}" ]; then
+            echo "::error::SUPABASE_ACCESS_TOKEN is not set."; missing=1
+          fi
+          if [ -z "${{ secrets.SUPABASE_PROJECT_REF }}" ]; then
+            echo "::error::SUPABASE_PROJECT_REF is not set."; missing=1
+          fi
+          if [ "$missing" = "1" ]; then
+            echo "Add them under Settings -> Secrets and variables -> Actions."
+            echo "See docs/GITHUB-SETUP.md."
+            exit 1
+          fi
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Deploy
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase functions deploy invite-user \
+            --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}"

@@ -1,10 +1,17 @@
 # Client CRM — System Architecture
 
 > Agency client portal & project management platform.
-> Next.js (App Router) · React · TypeScript · Tailwind CSS · Supabase (Postgres, Auth, Storage) · Vercel-ready.
+> React · TypeScript · Vite · React Router · Tailwind CSS · Supabase (Postgres, Auth, Storage, Edge Functions).
 
-This document is the design contract for the application. It is written **before** implementation
-and is the reference that the code follows. Sections map 1:1 to the twelve design deliverables.
+This document is the design contract for the application. Sections map 1:1 to the twelve design
+deliverables.
+
+> **One thing changed after it was written.** The original design put a Next.js server between the
+> browser and Supabase. To host on GitHub Pages the frontend became a static single-page app that
+> talks to Supabase directly. Sections 1 and 5 describe what it is now; everything from section 2
+> onwards — the schema, the relationships, the permission model, the workflows — is untouched,
+> because none of it ever lived in the frontend. Section 1.2 records why removing the server does
+> not weaken the boundary.
 
 ---
 
@@ -14,44 +21,40 @@ and is the reference that the code follows. Sections map 1:1 to the twelve desig
 
 ```
 ┌───────────────────────────────────────────────────────────────────────┐
-│  Browser (React 19 · Tailwind · responsive: mobile → desktop)          │
-│  ── Agency workspace (/dashboard, /clients, /projects/…)               │
-│  ── Client portal    (/portal/…)                                       │
-└───────────────┬───────────────────────────────────────────────────────┘
-                │  RSC payloads · Server Action POSTs · signed file URLs
-┌───────────────▼───────────────────────────────────────────────────────┐
-│  Next.js App Router (Vercel / Node runtime)                            │
+│  Browser — static bundle, no server of its own                         │
 │                                                                        │
-│  middleware.ts        session refresh + coarse route guard             │
-│  app/(agency)         React Server Components, agency-only             │
-│  app/(portal)         React Server Components, client-only             │
-│  app/(auth)           login / invite acceptance / password reset       │
-│  app/api/*            only where a route handler is genuinely needed   │
-│                       (file download proxy, cron-style reminder sweep) │
-│                                                                        │
-│  lib/auth             requireUser / requireAgency / requireClient      │
+│  App.tsx              65 routes, each page loaded on demand            │
+│  components/routing   RequireAuth / RequireAgency / RequireClient      │
+│                       — these decide what to RENDER, nothing more      │
+│  lib/auth-context     the signed-in profile, resolved once             │
 │  lib/permissions      the single source of truth for "can X do Y"      │
-│  lib/actions/*        Server Actions — validate → authorise → mutate   │
+│  lib/queries/*        typed read helpers                               │
+│  lib/actions/*        mutations — validate → authorise → write         │
 │                       → audit → activity → notify → revalidate         │
-│  lib/queries/*        typed read helpers used by Server Components     │
+│  lib/data             useQuery, useFormAction, revalidation            │
 └───────────────┬───────────────────────────────────────────────────────┘
-                │  postgrest (anon key + user JWT)  │  service role (server only)
-┌───────────────▼───────────────────────────────────▼───────────────────┐
+                │  postgrest + storage (anon key, signed in as the user)
+                │  one function call, for invitations only
+┌───────────────▼───────────────────────────────────────────────────────┐
 │  Supabase                                                              │
-│   Postgres  — 40+ tables, enums, triggers, RLS on every table          │
-│   Auth      — email/password + invite links, JWT carries user id       │
-│   Storage   — private buckets, RLS-mirrored path policies              │
+│   Postgres    — 41 tables, enums, triggers, RLS enabled AND forced     │
+│   Auth        — email/password + invite links, JWT carries user id     │
+│   Storage     — private bucket, RLS-mirrored path policies             │
+│   Functions   — invite-user: the one operation needing the service key │
 └───────────────────────────────────────────────────────────────────────┘
+
+Hosting: any static host. GitHub Pages by default (.github/workflows/pages.yml).
+Scheduled work: one idempotent Postgres function, called daily by a workflow.
 ```
 
 ### 1.2 Key architectural decisions
 
 | # | Decision | Rationale |
 |---|----------|-----------|
-| A1 | **App Router + React Server Components** | Data is fetched on the server with the user's own JWT, so RLS applies to every read. No client-side data fetching layer to secure separately. |
-| A2 | **Server Actions for every mutation** | One choke point per mutation where we validate (zod) → authorise → write → audit → log activity → notify → `revalidatePath`. No REST surface to forget to protect. |
-| A3 | **RLS is the security boundary, not the UI** | Every table has RLS enabled and `FORCE`d. The UI hides what you can't do; the database *refuses* it. A compromised or bypassed frontend cannot read another tenant's data. |
-| A4 | **Two Supabase clients, never mixed** | `createServerClient()` (anon key + user cookie session) is used for all normal work. `createAdminClient()` (service role) lives in `lib/supabase/admin.ts`, is marked `import 'server-only'`, and is used *only* for user invitation and the reminder sweep. |
+| A1 | **Static single-page app, talking to Supabase directly** | Every read carries the signed-in user's own JWT, so RLS applies to all of them. Removing the server removed a place to *forget* a check, not a place where checks happened: PostgREST is reachable with that JWT whether or not this app is the thing calling it. It also means the whole product hosts on GitHub Pages for nothing. |
+| A2 | **One module per domain for mutations** | Each is validate (zod) → authorise → write → audit → log activity → notify → revalidate. `useFormAction` wraps every form so the redirect and the revalidate cannot be forgotten. The functions are plain async TypeScript; they were Server Actions and did not need changing. |
+| A3 | **RLS is the security boundary, not the UI** | Every table has RLS enabled and `FORCE`d. The UI hides what you can't do; the database *refuses* it. A compromised or bypassed frontend cannot read another tenant's data. This is what makes A1 safe. |
+| A4 | **The service role key never enters the bundle** | One operation needs it — creating a login — and it runs in `supabase/functions/invite-user`, which verifies the caller's JWT, re-checks in the database who may invite whom, resolves the organisation *as the caller*, and records the audit entry as the caller. Everything else uses the anon key with the user's session. `VITE_` is the only prefix Vite exposes, so the key cannot reach the browser by accident. |
 | A5 | **Permissions expressed twice, deliberately** | SQL functions (`can_access_project`, `is_agency`, …) drive RLS; a mirrored TypeScript module drives the UI. They are kept in lockstep and documented side by side, because the DB cannot render a button and the UI cannot be trusted. |
 | A6 | **Polymorphic comments / activity / approvals** | `entity_type` + `entity_id` + a denormalised `project_id`. The denormalised `project_id` exists *specifically* so RLS can be a cheap index lookup instead of a recursive join. |
 | A7 | **jsonb for onboarding answers, relational for everything else** | Onboarding questionnaires must be agency-configurable. Their answers live in `onboarding_sections.responses jsonb`, validated server-side by a zod schema selected by section key. Everything with a lifecycle (tasks, requests, subscriptions) is fully relational. |
@@ -63,14 +66,15 @@ and is the reference that the code follows. Sections map 1:1 to the twelve desig
 
 ```
 src/
-  app/
-    (auth)/login | invite | reset-password | auth/callback
-    (agency)/    dashboard, clients, projects, change-requests, support,
+  main.tsx       BrowserRouter + AuthProvider
+  App.tsx        every route, each page behind lazy()
+  pages/
+    auth/        login, signup, invite acceptance, password reset
+    agency/      dashboard, clients, projects, change-requests, support,
                  maintenance, tasks, files, notifications, settings
-    (portal)/    portal/{home, projects, requests, support, files,
-                 maintenance, messages}
-    api/files/[id]/route.ts        signed-download proxy
-    api/reminders/sweep/route.ts   idempotent reminder materialiser
+    agency/project/  the 13 workspace tabs
+    portal/      home, projects, onboarding, content, requests, support,
+                 files, maintenance, messages, handover
   components/
     ui/          Button, Card, Badge, Input, Select, Textarea, Modal, Tabs,
                  Table, Progress, Timeline, EmptyState, Avatar, Toast, …
@@ -78,19 +82,26 @@ src/
     <domain>/    clients/, projects/, onboarding/, tasks/, files/,
                  change-requests/, support/, maintenance/, handover/,
                  comments/, activity/
+    routing/     RequireAuth / RequireAgency / RequireClient, QueryBoundary
   lib/
-    supabase/    server.ts, client.ts, admin.ts, database.types.ts
-    auth.ts      session + profile resolution, route guards
+    supabase/    client.ts, database.types.ts
+    auth-context.tsx  the signed-in profile, shared by the whole tree
+    session.ts   profile resolution for mutations
     permissions.ts
     actions/     one module per domain
     queries/     one module per domain
-    validation/  zod schemas (shared by forms and Server Actions)
-    audit.ts activity.ts notifications.ts
+    data/        use-query, use-form-action, revalidate, use-action-redirect
+    validation/  zod schemas (shared by forms and mutations)
+    internal-notes.ts  agency-only text, kept out of client-readable rows
+    audit.ts activity.ts notifications.ts download.ts
     constants.ts format.ts utils.ts
   config/brand.ts    single-file branding (name, tagline, colours, logo)
+  styles.css         design tokens, light and dark
 supabase/
-  migrations/  0001_extensions_and_enums … 0010_storage
+  migrations/  0001_extensions_and_enums … 0016_signup_hints
+  functions/   invite-user (Deno) — the only code not running in the browser
   seed.sql     realistic demo data
+  setup.sql    generated: every migration + the seed, as one pasteable file
 docs/
 ```
 
@@ -298,10 +309,10 @@ organisations ─1:1─ clients ─1:N─ projects ─1:N─ project_members ─
 |-------|---------|
 | `/` | Redirects by role: agency → `/dashboard`, client → `/portal`, anonymous → `/login` |
 | `/login` | Email + password |
-| `/invite/[token]` | Accept invitation, set password, activate profile |
+| `/signup` | Staff self-registration; the database decides what the account becomes |
+| `/invite/accept` | Accept invitation, set name and password, activate profile |
 | `/reset-password`, `/update-password` | Password recovery |
-| `/auth/callback` | Supabase code exchange |
-| `/setup` | Shown when env vars are missing — links to `docs/SETUP.md` instead of a stack trace |
+| `/setup` | Shown when the Supabase variables are missing — links to `docs/SETUP.md` instead of a stack trace |
 
 ### 4.2 Agency workspace
 
@@ -341,40 +352,67 @@ organisations ─1:1─ clients ─1:N─ projects ─1:N─ project_members ─
 
 ## 5. Authentication Design
 
-**Provider:** Supabase Auth (email + password). Sessions in httpOnly cookies via `@supabase/ssr`.
+**Provider:** Supabase Auth (email + password). The session is held by the Supabase client and
+refreshed automatically; `AuthProvider` resolves the profile once and shares it.
 
-**Provisioning is invite-only.** There is no public signup route.
+**Two ways in, and only one of them is self-service.**
+
+*Staff* register at `/signup`. What the account becomes is decided by `handle_new_user()` in the
+database, not by the form — a pending invitation wins, then the first-ever account becomes the
+administrator, then an allow-listed email domain becomes staff, and anything else gets a profile
+with no organisation that can read nothing. Keeping that ladder in the trigger means the rules
+hold however an account is created, including directly through the Supabase dashboard.
+
+*Clients* never register. An agency user invites them:
 
 ```
-Agency admin fills invite form
-      │  Server Action: requireAgencyAdmin() → validate → insert `invitations`
+Agency user fills the invite form
+      │  validate → fail fast on obvious problems
       ▼
-createAdminClient().auth.admin.inviteUserByEmail(email, { redirectTo: /invite/<token> })
-      │  service-role key used server-side only, never serialised to the client
-      ▼
-Invitee clicks link → /invite/[token] → sets password
+supabase.functions.invoke('invite-user')          ← the browser stops here
       │
+      ▼  Edge Function (Deno), holding the service role key
+      ├─ verifies the caller's JWT and loads their profile
+      ├─ refuses an inactive account
+      ├─ re-checks who may invite whom: admin → anyone;
+      │  client_owner → client roles, own organisation only
+      ├─ resolves the organisation AS THE CALLER, so it cannot be steered
+      ├─ writes `invitations`, then auth.admin.inviteUserByEmail(...)
+      │  — rolling the row back if the send fails
+      └─ records the audit entry as the caller, not as the service role
+      ▼
+Invitee clicks the link → /invite/accept → sets a name and password
       ▼
 Trigger `handle_new_user()` on auth.users INSERT
       ├─ finds the pending, unexpired invitation by email
       ├─ inserts public.users { id, email, full_name, role, organisation_id }
       ├─ links the client contact, stamps invitations.accepted_at
-      └─ if no invitation exists → profile is created inactive with no org (cannot see anything)
+      └─ if no invitation exists → inactive profile, no organisation, sees nothing
 ```
 
-**Session handling**
+**Route guards**
 
-- `middleware.ts` refreshes the Supabase session on every request and performs a *coarse*
-  guard (authenticated? agency route vs portal route?). It is a convenience, not the boundary.
-- Every page and Server Action calls `requireUser()` / `requireAgency()` / `requireClient()`
-  which re-resolve the profile server-side.
-- The real boundary is RLS. Even a forged request reaching Postgres returns zero rows.
+- `RequireAuth` / `RequireAgency` / `RequireAgencyAdmin` / `RequireClient` decide what to
+  *render*. They are not the boundary — a user who edited their way past them reaches screens
+  that return no data.
+- Mutations call `currentUser()` / `requireAgencyUser()` / `requireAgencyAdminUser()` to give a
+  clear message before a doomed round trip, not to authorise.
+- The boundary is RLS. A forged request reaching Postgres returns zero rows or a policy
+  violation, whatever the frontend believed.
 
 **Secrets**
 
-- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` — safe for the browser by design.
-- `SUPABASE_SERVICE_ROLE_KEY` — read only inside `lib/supabase/admin.ts`, which begins with
-  `import 'server-only'` so a client-component import is a build error.
+- `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` — compiled into the bundle, by design. The anon
+  key identifies the project and grants nothing; every policy is written against `auth.uid()`,
+  and a signed-out caller has none.
+- `SUPABASE_SERVICE_ROLE_KEY` — never in the bundle. It is a secret on the Edge Function and in
+  GitHub Actions. Vite only exposes `VITE_`-prefixed variables, so it cannot leak by accident.
+
+**One public read.** The signup screen has to tell a signed-out visitor which email address to
+use, and `agency_settings` is readable by signed-in users only. `staff_signup_hints()` is a
+`SECURITY DEFINER` function, granted to `anon`, returning exactly three facts: the signup mode,
+the approved domains, and whether this installation has an administrator yet. Nothing else about
+the settings, or the users behind them, becomes reachable — there are assertions for both.
 
 ---
 
@@ -437,8 +475,12 @@ SELECT policy itself, not by a filter in application code.
 
 Private bucket `project-files`, object paths `projects/<project_id>/<uuid>-<filename>`.
 Storage policies call `can_access_project((storage.foldername(name))[2]::uuid)`, so the same
-predicate governs rows and bytes. Downloads are served through `/api/files/[id]`, which
-re-checks access and returns a short-lived signed URL — object paths are never public.
+predicate governs rows and bytes.
+
+Object paths are never rendered into the page. A download reads the row — an RLS-evaluated
+SELECT, so an unreachable id simply is not found — and then mints a 60-second signed URL, which
+the storage policy checks again. The link is created on the click rather than put in the HTML, so
+it never outlives the moment someone asked for the file.
 
 ---
 
@@ -606,9 +648,14 @@ components/
   dashboard/     StatGrid AttentionList FilterPanel RecentProjects
 ```
 
-Rules: server components by default; `'use client'` only where interactivity requires it
-(forms, drag-drop, toggles). No component owns more than one responsibility. Forms share
-zod schemas with the Server Actions that receive them, so validation cannot drift.
+Also `routing/` — `RequireAuth`, `RequireAgency`, `RequireAgencyAdmin`, `RequireClient`,
+`HomeRedirect`, and `QueryBoundary`, which renders the loading and error states around a query so
+every screen handles them the same way.
+
+Rules: no component owns more than one responsibility. A page loads its data and passes it down;
+components do not fetch. Forms share zod schemas with the mutations that receive them, so
+validation cannot drift, and go through `useFormAction` so a success always navigates or
+revalidates.
 
 ---
 
@@ -617,10 +664,10 @@ zod schemas with the Server Actions that receive them, so validation cannot drif
 | Phase | Deliverable |
 |-------|-------------|
 | **0** | Architecture doc (this file), setup guide, env template |
-| **1** | Scaffold: Next.js, TypeScript, Tailwind, brand config, base styling |
+| **1** | Scaffold: Vite, React, TypeScript, Tailwind, brand config, base styling |
 | **2** | Database: enums → tables → indexes → triggers → RLS predicates → policies → storage |
 | **3** | Seed data: agency, staff, 4 clients, 6 projects, full demo content |
-| **4** | Supabase clients, generated types, auth guards, permission module, middleware |
+| **4** | Supabase client, generated types, auth context, route guards, permission module |
 | **5** | Design system primitives + app shells (agency sidebar, portal nav, mobile, dark mode) |
 | **6** | Auth screens: login, invite acceptance, password reset |
 | **7** | Clients & projects CRUD, project workspace shell |
@@ -633,5 +680,6 @@ zod schemas with the Server Actions that receive them, so validation cannot drif
 | **14** | Handover, checklists, documents, client acceptance |
 | **15** | Progress calculation, activity feed, notifications, audit log viewer |
 | **16** | Accessibility pass, responsive pass, polish |
+| **17** | Static rewrite for GitHub Pages: router, data layer, invitation function, deployment |
 
 Each phase ends with a typecheck and a commit.
