@@ -231,6 +231,19 @@ agency member scoping, the staff signup ladder and anonymous access.
 
 The same thing runs on every push — see the **CI** workflow.
 
+### Checking the built site
+
+```bash
+npx playwright install chromium     # once
+npm run smoke
+```
+
+Builds twice — once for the domain root, once for a `/<repo>/` sub-path — serves
+each the way GitHub Pages does, and walks the routes in a real browser. It is
+the only check that covers the single-page fallback, which is plain script with
+no types to protect it. Set `CHROMIUM_PATH` to use a browser already on the
+machine.
+
 ### Changing the schema
 
 Edit the files in `supabase/migrations/`, then regenerate the single-file

@@ -38,6 +38,32 @@ jobs:
           VITE_SUPABASE_URL: https://placeholder.supabase.co
           VITE_SUPABASE_ANON_KEY: placeholder-anon-key
 
+  smoke:
+    name: The built app in a browser
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      # Builds twice — once for the domain root, once for a /<repo>/ sub-path —
+      # serves each the way GitHub Pages does, and walks the routes in a real
+      # browser. This is the only check that covers the single-page fallback,
+      # which has no types to protect it.
+      - name: Smoke test
+        run: npm run smoke
+        env:
+          VITE_SUPABASE_URL: https://placeholder.supabase.co
+          VITE_SUPABASE_ANON_KEY: placeholder-anon-key
+
   database:
     name: Schema and Row Level Security
     runs-on: ubuntu-latest

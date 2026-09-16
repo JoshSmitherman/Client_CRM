@@ -161,6 +161,7 @@ anonymous access.
 | `npm run preview` | Serve `dist/` locally, as it will be deployed |
 | `npm run typecheck` | TypeScript, no emit |
 | `npm run lint` | ESLint |
+| `npm run smoke` | Build and walk the routes in a real browser, at both base paths |
 | `node scripts/generate-types.mjs` | Regenerate `database.types.ts` from a live schema |
 | `node scripts/seed-demo.mjs` | Create demo logins and data |
 | `node scripts/seed-demo.mjs --reset` | Wipe demo rows and re-seed |
