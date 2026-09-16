@@ -49,7 +49,11 @@ const ADMIN_EMAIL =
     ? args[args.indexOf('--email') + 1]
     : 'admin@northpoint.test';
 
-const DEMO_PASSWORD = process.env.DEMO_PASSWORD ?? 'PortalDemo2026!';
+// `||`, not `??`. The workflow passes an unset input through as an empty
+// string, which is not undefined — so `??` kept it, and every account was
+// created with no password at all. Supabase accepts that without complaint:
+// the accounts exist, and nobody can sign in to them.
+const DEMO_PASSWORD = process.env.DEMO_PASSWORD?.trim() || 'PortalDemo2026!';
 
 const db = createClient(SUPABASE_URL, SERVICE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
@@ -99,6 +103,16 @@ async function ensureUser({ email, fullName, role, organisationId, jobTitle }) {
     const { data: list } = await db.auth.admin.listUsers({ page: 1, perPage: 1000 });
     userId = list?.users?.find((u) => u.email?.toLowerCase() === email.toLowerCase())?.id;
     if (!userId) fail(`finding the existing user ${email}`, new Error('not found'));
+
+    // Reset the password on the way through, so re-running the seed repairs an
+    // account rather than silently leaving it as it was. That matters after a
+    // run that created these with no password: without this, a second run
+    // would take this branch and never fix them.
+    const { error: passwordError } = await db.auth.admin.updateUserById(userId, {
+      password: DEMO_PASSWORD,
+      email_confirm: true,
+    });
+    fail(`resetting the password for ${email}`, passwordError);
   }
 
   const { error: profileError } = await db.from('users').upsert(
@@ -1778,7 +1792,7 @@ async function seedComments(projectId, clientId, rows) {
 
 function done(logins) {
   console.log('\n─────────────────────────────────────────────────────────');
-  console.log(' Demo data ready. Sign in at http://localhost:3000/login');
+  console.log(' Demo data ready. Sign in at the /login page of your site.');
   console.log('─────────────────────────────────────────────────────────\n');
   for (const [email, role] of logins) {
     console.log(`  ${email.padEnd(34)} ${role}`);
