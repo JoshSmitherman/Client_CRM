@@ -210,7 +210,7 @@ async function main() {
   const adminId = await ensureUser({
     email: ADMIN_EMAIL,
     fullName: 'Alex Mercer',
-    role: 'agency_admin',
+    role: 'agency',
     organisationId: agencyOrgId,
     jobTitle: 'Agency director',
   });
@@ -223,21 +223,21 @@ async function main() {
   const pmId = await ensureUser({
     email: 'priya@northpoint.test',
     fullName: 'Priya Raman',
-    role: 'project_manager',
+    role: 'agency',
     organisationId: agencyOrgId,
     jobTitle: 'Project manager',
   });
   const devId = await ensureUser({
     email: 'sam@northpoint.test',
     fullName: 'Sam Okafor',
-    role: 'developer',
+    role: 'agency',
     organisationId: agencyOrgId,
     jobTitle: 'Senior developer',
   });
   const designerId = await ensureUser({
     email: 'nina@northpoint.test',
     fullName: 'Nina Alvarez',
-    role: 'designer',
+    role: 'agency',
     organisationId: agencyOrgId,
     jobTitle: 'Designer',
   });
@@ -311,6 +311,74 @@ async function main() {
       accountManager: adminId,
       userName: 'Ruby Kaur',
     },
+    {
+      slug: 'ashdown-accountancy',
+      company: 'Ashdown Accountancy',
+      trading: null,
+      industry: 'Accountancy',
+      contact: 'Marcus Hale',
+      email: 'marcus@ashdown.test',
+      phone: '0113 496 2210',
+      website: 'https://ashdownaccountancy.test',
+      city: 'Leeds',
+      postcode: 'LS1 4AP',
+      description:
+        'Twelve-partner accountancy practice. No in-house IT; they retain us for day-to-day support.',
+      existing: true,
+      accountManager: adminId,
+      userName: 'Marcus Hale',
+    },
+    {
+      slug: 'quarry-lane-interiors',
+      company: 'Quarry Lane Interiors',
+      trading: 'Quarry Lane',
+      industry: 'Retail — furniture',
+      contact: 'Elena Fitzgerald',
+      email: 'elena@quarrylane.test',
+      phone: '0161 802 7741',
+      website: 'https://quarrylane.test',
+      city: 'Manchester',
+      postcode: 'M4 1HN',
+      description:
+        'Independent furniture retailer moving from a catalogue site to selling online.',
+      existing: false,
+      accountManager: pmId,
+      userName: 'Elena Fitzgerald',
+    },
+    {
+      slug: 'penhale-cider',
+      company: 'Penhale Cider Co.',
+      trading: null,
+      industry: 'Food and drink',
+      contact: 'Joss Trevelyan',
+      email: 'joss@penhale.test',
+      phone: '01872 553 118',
+      website: 'https://penhalecider.test',
+      city: 'Truro',
+      postcode: 'TR1 2QS',
+      description:
+        'Family cider maker. Rebranding ahead of a push into national retailers.',
+      existing: false,
+      accountManager: pmId,
+      userName: 'Joss Trevelyan',
+    },
+    {
+      slug: 'mercer-recruitment',
+      company: 'Mercer Recruitment',
+      trading: null,
+      industry: 'Recruitment',
+      contact: 'Priyanka Rao',
+      email: 'priyanka@mercerrec.test',
+      phone: '020 7946 3355',
+      website: 'https://mercerrecruitment.test',
+      city: 'London',
+      postcode: 'EC2A 4NE',
+      description:
+        'Specialist engineering recruiter. Wants to be found for role-specific searches.',
+      existing: true,
+      accountManager: adminId,
+      userName: 'Priyanka Rao',
+    },
   ];
 
   const clients = {};
@@ -375,7 +443,7 @@ async function main() {
     await ensureUser({
       email: spec.email,
       fullName: spec.userName,
-      role: 'client_owner',
+      role: 'client',
       organisationId: clients[spec.slug].orgId,
       jobTitle: 'Owner',
     });
@@ -439,6 +507,76 @@ async function main() {
       description: 'January membership campaign landing page with sign-up funnel.',
       members: [adminId, designerId],
     },
+    {
+      key: 'ashdown',
+      client: 'ashdown-accountancy',
+      name: 'IT Support & Systems',
+      type: 'it_consultancy',
+      stage: 'maintenance',
+      completion: 100,
+      health: 'on_track',
+      start: daysAgo(640),
+      launch: daysAgo(602),
+      description:
+        'Retained IT support: staff hardware, Microsoft 365, backups, and the practice management system. Ongoing, not a build.',
+      members: [adminId, devId],
+    },
+    {
+      key: 'quarry',
+      client: 'quarry-lane-interiors',
+      name: 'Online Store Build',
+      type: 'ecommerce',
+      stage: 'design',
+      completion: 41,
+      health: 'at_risk',
+      start: daysAgo(33),
+      launch: daysFromNow(62),
+      description:
+        'First transactional site: 400-product catalogue, delivery zones by postcode, and click-and-collect from the Manchester showroom.',
+      members: [pmId, devId, designerId],
+    },
+    {
+      key: 'penhale',
+      client: 'penhale-cider',
+      name: 'Brand Refresh',
+      type: 'branding',
+      stage: 'client_review',
+      completion: 76,
+      health: 'on_track',
+      start: daysAgo(40),
+      launch: daysFromNow(12),
+      description:
+        'New identity, label artwork for four products, and brand guidelines ahead of retailer meetings.',
+      members: [pmId, designerId],
+    },
+    {
+      key: 'penhale-site',
+      client: 'penhale-cider',
+      name: 'Website Build',
+      type: 'new_website',
+      stage: 'planning',
+      completion: 12,
+      health: 'on_track',
+      start: daysAgo(6),
+      launch: daysFromNow(95),
+      description:
+        'Site to follow the rebrand: stockist finder, trade enquiry form, and the story of the orchard.',
+      members: [pmId, devId, designerId],
+    },
+    {
+      key: 'mercer',
+      client: 'mercer-recruitment',
+      name: 'Search Visibility',
+      type: 'seo',
+      stage: 'live',
+      completion: 100,
+      health: 'at_risk',
+      start: daysAgo(180),
+      launch: daysAgo(120),
+      description:
+        'Technical fixes, role-specific landing pages, and monthly reporting. Rankings recovered but conversions have not followed.',
+      members: [adminId, devId],
+    },
   ];
 
   const projects = {};
@@ -492,6 +630,7 @@ async function main() {
   }
 
   await seedProjectDetail({ projects, clients, adminId, pmId, devId, designerId });
+  await seedWiderBookOfWork({ projects, clients, adminId, pmId, devId, designerId });
 
   done([
     [ADMIN_EMAIL, 'Agency administrator'],
@@ -502,9 +641,346 @@ async function main() {
     ['amara@harbourside.test', 'Client — Harbourside Dental'],
     ['tom@verity.test', 'Client — Verity Legal'],
     ['ruby@kestrel.test', 'Client — Kestrel Fitness'],
+    ['marcus@ashdown.test', 'Client — Ashdown Accountancy (IT support)'],
+    ['elena@quarrylane.test', 'Client — Quarry Lane Interiors (ecommerce)'],
+    ['joss@penhale.test', 'Client — Penhale Cider (branding + build)'],
+    ['priyanka@mercerrec.test', 'Client — Mercer Recruitment (SEO)'],
   ]);
 }
 
+
+
+// --- the wider book of work -------------------------------------------------
+/**
+ * Detail for the five newer projects.
+ *
+ * Kept apart from seedProjectDetail rather than appended to it: these cover
+ * kinds of work the first four do not — retained IT support with no launch
+ * date, a transactional build, a rebrand, and an SEO engagement that is live
+ * but underperforming — and mixing them in would make a long function longer
+ * without making either half clearer.
+ *
+ * The point of the variety is to exercise screens that otherwise never see
+ * anything interesting: a project with no milestones left, a subscription with
+ * its allowance overspent, a ticket nobody has picked up, a change request
+ * waiting on the client rather than on us.
+ */
+async function seedWiderBookOfWork({ projects, clients, adminId, pmId, devId, designerId }) {
+  const { ashdown, quarry, penhale, mercer } = projects;
+  const penhaleSite = projects['penhale-site'];
+
+  step('Milestones — wider book of work');
+  await seedMilestones(quarry.id, [
+    ['Discovery complete', daysAgo(26), true],
+    ['Catalogue data agreed', daysAgo(12), true],
+    ['Designs approved', daysFromNow(9), false],
+    ['Payment and delivery configured', daysFromNow(31), false],
+    ['Stock import', daysFromNow(44), false],
+    ['Launch', daysFromNow(62), false],
+  ]);
+  await seedMilestones(penhale.id, [
+    ['Brand workshop', daysAgo(36), true],
+    ['Routes presented', daysAgo(22), true],
+    ['Direction chosen', daysAgo(11), true],
+    ['Label artwork approved', daysFromNow(4), false],
+    ['Guidelines delivered', daysFromNow(12), false],
+  ]);
+  await seedMilestones(penhaleSite.id, [
+    ['Requirements agreed', daysFromNow(9), false],
+    ['Sitemap approved', daysFromNow(23), false],
+    ['Design approved', daysFromNow(48), false],
+    ['Launch', daysFromNow(95), false],
+  ]);
+
+  step('Deliverables and risks — wider book of work');
+  await seedDeliverables(quarry.id, [
+    ['Product catalogue import — 400 products with variants', 'agency', daysFromNow(44)],
+    ['Delivery zones by postcode, plus showroom collection', 'agency', daysFromNow(31)],
+    ['Payment provider account, opened in their name', 'client', daysFromNow(20)],
+    ['Product photography, consistent background and scale', 'client', daysFromNow(26)],
+  ]);
+  await seedRisks(quarry.id, [
+    [
+      'Product data is inconsistent',
+      'Dimensions are recorded in three different formats across the spreadsheet, and roughly a fifth of items have no weight at all — which delivery pricing depends on.',
+      'high', 'high',
+      'Agreed a cleanup pass with their operations manager before import. Sample of fifty checked and returned.',
+      devId,
+    ],
+    [
+      'Photography not started',
+      'No product photography has been commissioned, and the launch date assumes it exists.',
+      'medium', 'high',
+      'Flagged at the last two calls and noted in writing. Holding a fortnight of contingency.',
+      pmId,
+    ],
+  ]);
+  await seedRisks(penhaleSite.id, [
+    [
+      'Depends on the rebrand landing',
+      'The site cannot be designed until label artwork and guidelines are signed off on the other project.',
+      'medium', 'medium',
+      'Sequenced deliberately. Start date set two weeks after the guidelines are due.',
+      pmId,
+    ],
+  ]);
+
+  step('Tasks — wider book of work');
+  await seedTasks(quarry.id, [
+    ['Normalise the product spreadsheet', 'agency', devId, 'content', 'in_progress', 'high', daysFromNow(6)],
+    ['Build the category templates', 'agency', devId, 'development', 'to_do', 'high', daysFromNow(18)],
+    ['Design the basket and checkout', 'agency', designerId, 'design', 'in_progress', 'high', daysFromNow(8)],
+    ['Open the payment provider account', 'client', null, 'other', 'to_do', 'high', daysAgo(3)],
+    ['Send product photography', 'client', null, 'content', 'to_do', 'high', daysFromNow(11)],
+    ['Confirm delivery bands and prices', 'client', null, 'other', 'complete', 'medium', daysAgo(9)],
+  ]);
+  await seedTasks(penhale.id, [
+    ['Apply chosen route to all four labels', 'agency', designerId, 'design', 'in_progress', 'high', daysFromNow(2)],
+    ['Write the brand guidelines', 'agency', designerId, 'design', 'to_do', 'medium', daysFromNow(9)],
+    ['Approve label artwork', 'client', null, 'other', 'to_do', 'high', daysFromNow(4)],
+    ['Supply the orchard photography', 'client', null, 'content', 'complete', 'medium', daysAgo(14)],
+  ]);
+  await seedTasks(penhaleSite.id, [
+    ['Requirements workshop', 'agency', pmId, 'discovery', 'in_progress', 'high', daysFromNow(5)],
+    ['Draft the sitemap', 'agency', pmId, 'discovery', 'to_do', 'medium', daysFromNow(16)],
+    ['List the stockists to include', 'client', null, 'content', 'to_do', 'medium', daysFromNow(21)],
+  ]);
+  await seedTasks(mercer.id, [
+    ['Investigate the conversion drop', 'agency', devId, 'other', 'in_progress', 'high', daysFromNow(2)],
+    ['Rewrite the four weakest role pages', 'agency', adminId, 'content', 'to_do', 'medium', daysFromNow(12)],
+    ['Monthly report — send to Priyanka', 'agency', adminId, 'other', 'complete', 'medium', daysAgo(4)],
+  ]);
+  await seedTasks(ashdown.id, [
+    ['Replace the two failing laptops', 'agency', devId, 'other', 'in_progress', 'high', daysFromNow(3)],
+    ['Quarterly backup restore test', 'agency', devId, 'qa', 'to_do', 'high', daysFromNow(19)],
+    ['Confirm who is leaving in April', 'client', null, 'other', 'to_do', 'medium', daysFromNow(8)],
+  ]);
+
+  step('Maintenance — wider book of work');
+  const premium = await planId('premium');
+  const essentialPlan = await planId('essential');
+  const professionalPlan = await planId('professional');
+
+  // Retained IT support: no launch, no end, and the allowance is the product.
+  const ashdownSub = await seedSubscription({
+    clientId: ashdown.clientId,
+    projectId: ashdown.id,
+    plan: premium,
+    status: 'active',
+    startDate: daysAgo(602),
+    renewalDate: daysFromNow(23),
+    websiteUrl: 'https://ashdownaccountancy.test',
+    createdBy: adminId,
+  });
+
+  // Deliberately overspent, so the allowance meter has something to say.
+  await seedUsage(ashdownSub, ashdown.clientId, devId, [
+    ['support', 95, 'Microsoft 365 mailbox migration for two new starters', daysAgo(26)],
+    ['support', 140, 'Practice management system would not open after a Windows update', daysAgo(19)],
+    ['change', 80, 'Added the new partner to the website team page', daysAgo(12)],
+    ['support', 60, 'Printer and scanner setup, second floor', daysAgo(5)],
+  ]);
+
+  // Live but underperforming — an engagement, not a build.
+  const mercerSub = await seedSubscription({
+    clientId: mercer.clientId,
+    projectId: mercer.id,
+    plan: professionalPlan,
+    status: 'renewal_due',
+    startDate: daysAgo(180),
+    renewalDate: daysFromNow(11),
+    websiteUrl: 'https://mercerrecruitment.test',
+    createdBy: adminId,
+  });
+  await seedUsage(mercerSub, mercer.clientId, adminId, [
+    ['change', 45, 'New landing page: contract mechanical engineers', daysAgo(34)],
+    ['change', 55, 'Rewrote three role page introductions', daysAgo(16)],
+  ]);
+  await seedReminders(mercer.clientId, mercerSub, mercer.id, adminId);
+
+  // A small plan on a brand-new client, for contrast.
+  await seedSubscription({
+    clientId: clients['quarry-lane-interiors'].id,
+    projectId: quarry.id,
+    plan: essentialPlan,
+    status: 'trial',
+    startDate: daysAgo(12),
+    renewalDate: daysFromNow(78),
+    websiteUrl: 'https://quarrylane.test',
+    createdBy: pmId,
+  });
+
+  step('Change requests — wider book of work');
+  const { data: marcus } = await db.from('users').select('id').eq('email', 'marcus@ashdown.test').maybeSingle();
+  const { data: elena } = await db.from('users').select('id').eq('email', 'elena@quarrylane.test').maybeSingle();
+  const { data: priyanka } = await db.from('users').select('id').eq('email', 'priyanka@mercerrec.test').maybeSingle();
+  const { data: joss } = await db.from('users').select('id').eq('email', 'joss@penhale.test').maybeSingle();
+
+  await seedChangeRequest({
+    clientId: ashdown.clientId,
+    projectId: ashdown.id,
+    subscriptionId: ashdownSub,
+    title: 'Add the new partner to the team page',
+    category: 'existing_page_update',
+    description:
+      'Rachel Obi joined us on the first of the month. Photograph attached, biography below. Same format as the others please.',
+    desiredOutcome: 'Rachel listed with the other partners, in the right order of seniority.',
+    priority: 'low',
+    status: 'completed',
+    billing: 'included_in_plan',
+    assignedTo: devId,
+    submittedBy: marcus?.id ?? null,
+    submittedAt: daysAgo(14),
+    loggedMinutes: 80,
+  });
+
+  // Waiting on the client, not on us — the state nobody builds a screen for.
+  await seedChangeRequest({
+    clientId: quarry.clientId,
+    projectId: quarry.id,
+    title: 'Sell the Ashford range as made-to-order',
+    category: 'new_feature',
+    description:
+      'We want the Ashford sofas configurable — fabric, leg finish and size — with a longer lead time shown at checkout.',
+    desiredOutcome: 'Customers can order a configuration we then build, rather than only what is in stock.',
+    priority: 'high',
+    status: 'more_information_required',
+    billing: 'requires_quotation',
+    assignedTo: pmId,
+    submittedBy: elena?.id ?? null,
+    submittedAt: daysAgo(8),
+    clientNotes:
+      'Before we can price this we need the full option matrix — every fabric, finish and size combination you actually offer, and which are not available together.',
+  });
+
+  await seedChangeRequest({
+    clientId: mercer.clientId,
+    projectId: mercer.id,
+    subscriptionId: mercerSub,
+    title: 'Landing page for renewable energy roles',
+    category: 'new_feature',
+    description:
+      'We are opening a renewables desk in April and want a page ready to rank before the first placements.',
+    desiredOutcome: 'A page matching the existing role pages, live before the desk opens.',
+    priority: 'medium',
+    status: 'awaiting_client_approval',
+    billing: 'additional_charge',
+    assignedTo: adminId,
+    submittedBy: priyanka?.id ?? null,
+    submittedAt: daysAgo(5),
+  });
+
+  step('Support — wider book of work');
+  await seedSupport({
+    clientId: ashdown.clientId,
+    projectId: ashdown.id,
+    subscriptionId: ashdownSub,
+    subject: 'Nobody in the Leeds office can print',
+    category: 'general_support',
+    description:
+      'Started this morning. Both printers show as offline on every machine. The scanner still works.',
+    urgency: 'high',
+    status: 'resolved',
+    assignedTo: devId,
+    submittedBy: marcus?.id ?? null,
+    submittedAt: daysAgo(9),
+    covered: true,
+    minutes: 45,
+    resolution:
+      'Print spooler had stalled on the server after the overnight update. Restarted it and set the service to recover automatically.',
+  });
+
+  // Unassigned and open, so the triage queue is not empty.
+  await seedSupport({
+    clientId: ashdown.clientId,
+    projectId: ashdown.id,
+    subscriptionId: ashdownSub,
+    subject: 'Outlook asking for a password repeatedly',
+    category: 'email_issue',
+    description:
+      'Two of the partners are being prompted for their password several times a day. Entering it works, then it asks again an hour later.',
+    urgency: 'normal',
+    status: 'open',
+    assignedTo: null,
+    submittedBy: marcus?.id ?? null,
+    submittedAt: daysAgo(1),
+    covered: true,
+  });
+
+  await seedSupport({
+    clientId: mercer.clientId,
+    projectId: mercer.id,
+    subscriptionId: mercerSub,
+    subject: 'Applications have dropped since the rankings improved',
+    category: 'broken_functionality',
+    description:
+      'We are getting more visitors than ever but fewer applications than in the autumn. Something in the form, or the pages?',
+    urgency: 'high',
+    status: 'in_progress',
+    assignedTo: devId,
+    submittedBy: priyanka?.id ?? null,
+    submittedAt: daysAgo(6),
+    covered: false,
+    minutes: 90,
+  });
+
+  step('Onboarding and comments — wider book of work');
+  await seedOnboarding(quarry.id, {
+    company_information: [
+      'approved',
+      {
+        legal_name: 'Quarry Lane Interiors Ltd',
+        trading_name: 'Quarry Lane',
+        registration_number: '09883214',
+        primary_contact: 'Elena Fitzgerald',
+        contact_email: 'elena@quarrylane.test',
+        contact_phone: '0161 802 7741',
+        business_summary:
+          'Independent furniture retailer, one showroom in the Northern Quarter and a warehouse in Salford. Fifteen staff.',
+      },
+    ],
+    project_requirements: [
+      'submitted',
+      {
+        objectives:
+          'Sell online for the first time. We lose customers who visit the showroom, go home to think, and then buy elsewhere because they cannot buy from us at eleven at night.',
+        success_measures: 'Twenty online orders a month by the end of the first quarter.',
+        must_have_features:
+          'Delivery priced by postcode. Click and collect. Stock that reflects the warehouse, not a guess.',
+        launch_deadline: 'Before the autumn catalogue goes out.',
+      },
+    ],
+    branding: [
+      'in_progress',
+      { primary_colour: '#2F4538', secondary_colour: '#C9A227', tone_of_voice: 'Warm, plain, unfussy. We are not a lifestyle brand.' },
+    ],
+    website_content: ['not_started', {}],
+    domain_hosting: [
+      'approved',
+      { domain_registrar: 'Registered with Namecheap, we have the login', current_host: 'Currently on a basic shared plan' },
+    ],
+  });
+
+  await seedComments(quarry.id, quarry.clientId, [
+    [pmId, 'The product spreadsheet is with us — thank you. Working through the dimension formats now.', false],
+    [elena?.id ?? pmId, 'Some of the older ranges may have no weights at all. Is that a problem?', false],
+    [devId, 'It is for delivery pricing, since the bands are weight-based. We will list what is missing and send it over this week.', false],
+    [pmId, 'Photography still has not been commissioned. Third time of asking — noted in writing after the last call.', true],
+  ]);
+
+  await seedComments(penhale.id, penhale.clientId, [
+    [designerId, 'Three routes attached. The second is the one we would push, but all three work on a shelf.', false],
+    [joss?.id ?? pmId, 'Route two, without question. The family all picked it independently.', false],
+    [designerId, 'Applying it to all four labels now. Artwork with you early next week.', false],
+  ]);
+
+  await seedComments(ashdown.id, ashdown.clientId, [
+    [devId, 'Both replacement laptops have arrived and are being set up. Ready Thursday.', false],
+    [marcus?.id ?? adminId, 'Perfect. Can they be delivered to the Leeds office rather than collected?', false],
+    [devId, 'Yes — Thursday afternoon.', false],
+    [adminId, 'Allowance is well over this period. Worth raising the plan at renewal rather than absorbing it again.', true],
+  ]);
+}
 
 // --- project detail --------------------------------------------------------
 /**
