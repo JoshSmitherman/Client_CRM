@@ -60,9 +60,6 @@ jobs:
       # which has no types to protect it.
       - name: Smoke test
         run: npm run smoke
-        env:
-          VITE_SUPABASE_URL: https://placeholder.supabase.co
-          VITE_SUPABASE_ANON_KEY: placeholder-anon-key
 
   database:
     name: Schema and Row Level Security

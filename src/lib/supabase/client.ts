@@ -15,11 +15,19 @@ import type { Database } from './database.types';
  * in this codebase. Issuing client logins is the one operation that needs it,
  * and that runs in a Supabase Edge Function.
  */
-const url = import.meta.env.VITE_SUPABASE_URL;
-const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+/**
+ * Trimmed, and empty treated as missing. A secret that exists but is blank is
+ * an easy mistake to make, and createClient() throws on an empty URL — which
+ * would take the whole application down at import time rather than showing the
+ * setup screen that exists to explain the problem.
+ */
+const url = import.meta.env.VITE_SUPABASE_URL?.trim() || undefined;
+const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() || undefined;
 
 export const isSupabaseConfigured = Boolean(url && anonKey);
 
+// Placeholders keep the module importable when nothing is configured, so the
+// setup screen can render and say so.
 export const supabase = createSupabaseClient<Database>(
   url ?? 'https://placeholder.supabase.co',
   anonKey ?? 'placeholder-anon-key',

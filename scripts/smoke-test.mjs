@@ -62,8 +62,10 @@ function serve(prefix) {
 }
 
 /**
- * Without Supabase credentials the app shows its setup screen, so these assert
- * routing and rendering rather than data. That is what this test is for.
+ * Built deliberately without Supabase credentials, so the state is the same on
+ * every machine: guarded routes land on the setup screen, and nothing makes a
+ * network call. These assert routing and rendering, which is what this test is
+ * for — the data layer is covered by the Row Level Security assertions.
  */
 const CASES = [
   { path: '/', expect: 'Finish setting up', lands: '/setup' },
@@ -108,12 +110,9 @@ async function run(prefix) {
     if (r.status() >= 400) problems.push(`${r.status()} ${r.url()}`);
   });
 
-  page.on('requestfailed', (r) => {
-    // Supabase is deliberately unconfigured here; a failed call to the
-    // placeholder host is the expected result, not a problem with the build.
-    if (r.url().includes('placeholder.supabase.co')) return;
-    problems.push(`request failed: ${r.url()} ${r.failure()?.errorText ?? ''}`);
-  });
+  page.on('requestfailed', (r) =>
+    problems.push(`request failed: ${r.url()} ${r.failure()?.errorText ?? ''}`),
+  );
 
   let failures = 0;
 
@@ -155,7 +154,15 @@ for (const prefix of ['/', '/Client_CRM/']) {
   console.log(`\nBuilding with base ${prefix}…`);
   execFileSync('npm', ['run', 'build'], {
     stdio: 'ignore',
-    env: { ...process.env, BASE_PATH: prefix },
+    env: {
+      ...process.env,
+      BASE_PATH: prefix,
+      // Blanked rather than merely absent: Vite would otherwise pick them up
+      // from a local .env.local, and the run would behave differently on a
+      // developer's machine than in CI.
+      VITE_SUPABASE_URL: '',
+      VITE_SUPABASE_ANON_KEY: '',
+    },
   });
   failures += await run(prefix);
 }
