@@ -292,9 +292,20 @@ export async function reassignClientUserAction(
     throw new Error(`They are already with ${client.company_name}.`);
   }
 
+  // Someone who belonged nowhere has never had access — handle_new_user()
+  // parks an uninvited signup with no organisation and is_active false. Giving
+  // them a client is the act of granting it, so it is granted here too.
+  // Somebody who already belonged to a client keeps whatever state they had:
+  // an inactive account there was deliberately switched off, and moving them
+  // is not the moment to quietly switch it back on.
+  const activating = target.organisation_id === null;
+
   const { error } = await supabase
     .from('users')
-    .update({ organisation_id: client.organisation_id })
+    .update({
+      organisation_id: client.organisation_id,
+      ...(activating ? { is_active: true } : {}),
+    })
     .eq('id', userId);
 
   if (error) throw new Error(`Could not move the account: ${error.message}`);
@@ -304,6 +315,10 @@ export async function reassignClientUserAction(
     entityType: 'user',
     entityId: userId,
     previousValue: { organisation_id: target.organisation_id },
-    newValue: { organisation_id: client.organisation_id, client: client.company_name },
+    newValue: {
+      organisation_id: client.organisation_id,
+      client: client.company_name,
+      ...(activating ? { is_active: true } : {}),
+    },
   });
 }

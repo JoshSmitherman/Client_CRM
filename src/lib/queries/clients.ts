@@ -7,7 +7,7 @@ export async function getClients(search?: string) {
     .from('clients')
     .select(
       `id, company_name, trading_name, industry, email, phone, is_active, is_existing_client,
-       created_at, account_manager_id,
+       created_at, account_manager_id, organisation_id,
        account_manager:users!clients_account_manager_id_fkey ( id, full_name )`,
     )
     .is('deleted_at', null)
@@ -154,4 +154,54 @@ export async function getAccountManagers() {
     .order('full_name');
 
   return data ?? [];
+}
+
+export interface MovableClientUser {
+  id: string;
+  full_name: string;
+  email: string;
+  is_active: boolean;
+  /** Where they are now: a client's name, or null if they belong nowhere. */
+  currentClient: string | null;
+}
+
+/**
+ * Client accounts that could be brought to a given client.
+ *
+ * Two kinds of person end up here. Most belong to another client and are being
+ * moved — an agency contact who has changed company, or someone filed under the
+ * wrong record. The rest belong nowhere at all: they signed up without an
+ * invitation, so handle_new_user() gave them a profile with no organisation and
+ * no access. Attaching one of those is how a stray signup becomes a real portal
+ * user, which is worth being able to do without deleting and re-inviting them.
+ */
+export async function getClientUsersElsewhere(
+  excludeClientId: string,
+): Promise<MovableClientUser[]> {
+  const [{ data: target }, { data: users }, { data: clients }] = await Promise.all([
+    supabase.from('clients').select('organisation_id').eq('id', excludeClientId).maybeSingle(),
+    supabase
+      .from('users')
+      .select('id, full_name, email, is_active, organisation_id')
+      .eq('role', 'client')
+      .is('deleted_at', null)
+      .order('full_name'),
+    supabase.from('clients').select('organisation_id, company_name').is('deleted_at', null),
+  ]);
+
+  const nameByOrganisation = new Map(
+    (clients ?? []).map((c) => [c.organisation_id, c.company_name]),
+  );
+
+  return (users ?? [])
+    .filter((u) => u.organisation_id !== target?.organisation_id)
+    .map((u) => ({
+      id: u.id,
+      full_name: u.full_name,
+      email: u.email,
+      is_active: u.is_active,
+      currentClient: u.organisation_id
+        ? (nameByOrganisation.get(u.organisation_id) ?? null)
+        : null,
+    }));
 }

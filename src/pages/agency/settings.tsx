@@ -40,7 +40,7 @@ async function load(active: TabKey) {
     supabase.from('agency_settings').select('*').maybeSingle(),
     supabase
       .from('users')
-      .select('id, full_name, email, role, is_active, last_seen_at, job_title')
+      .select('id, full_name, email, role, is_active, last_seen_at, job_title, organisation_id')
       .is('deleted_at', null)
       .order('full_name'),
     supabase
@@ -137,6 +137,14 @@ export function SettingsPage() {
                   description="Staff can register with an approved work email address; client logins are always issued by the agency."
                 />
                 <TeamTable
+                  clients={data.clients.map((c) => ({
+                    id: c.id,
+                    company_name: c.company_name,
+                    organisation_id: c.organisation_id,
+                  }))}
+                  clientByOrganisation={Object.fromEntries(
+                    data.clients.map((c) => [c.organisation_id, c.company_name]),
+                  )}
                   members={(data.members ?? []) as TeamMember[]}
                   invitations={(data.invitations ?? []) as PendingInvite[]}
                   currentUserId={userId ?? ''}

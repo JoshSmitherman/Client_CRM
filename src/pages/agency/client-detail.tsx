@@ -47,7 +47,12 @@ import { useQuery } from '@/lib/data/use-query';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { getInternalNote } from '@/lib/internal-notes';
 import { ROLE_LABELS, canDeleteRecords } from '@/lib/permissions';
-import { getClient, getClientOverview, getClients } from '@/lib/queries/clients';
+import {
+  getClient,
+  getClientOverview,
+  getClientUsersElsewhere,
+  getClients,
+} from '@/lib/queries/clients';
 import { useDocumentTitle } from '@/lib/use-document-title';
 import { NotFoundPage } from '@/pages/not-found';
 
@@ -55,13 +60,14 @@ async function load(id: string) {
   const client = await getClient(id);
   if (!client) return null;
 
-  const [overview, internalNote, allClients] = await Promise.all([
+  const [overview, internalNote, allClients, elsewhere] = await Promise.all([
     getClientOverview(id),
     getInternalNote('client', id),
     getClients(),
+    getClientUsersElsewhere(id),
   ]);
 
-  return { client, overview, internalNote, allClients };
+  return { client, overview, internalNote, allClients, elsewhere };
 }
 
 export function ClientDetailPage() {
@@ -93,7 +99,7 @@ export function ClientDetailPage() {
     <QueryBoundary query={query}>
       {(data) => {
         if (!data) return <NotFoundPage />;
-        const { client, overview, internalNote, allClients } = data;
+        const { client, overview, internalNote, allClients, elsewhere } = data;
 
         const manager = client.account_manager as unknown as
           | { full_name: string; email: string }
@@ -512,6 +518,7 @@ export function ClientDetailPage() {
                     id: c.id,
                     company_name: c.company_name,
                   }))}
+                  elsewhere={elsewhere}
                 />
 
                 {canDelete ? (

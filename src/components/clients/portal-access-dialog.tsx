@@ -10,6 +10,7 @@ import { ConfirmDelete } from '@/components/ui/confirm-delete';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Select } from '@/components/ui/field';
 import { Modal } from '@/components/ui/modal';
+import { MoveClientUser } from '@/components/clients/move-client-user';
 import {
   deleteUserAction,
   reassignClientUserAction,
@@ -20,6 +21,7 @@ import { useAuth } from '@/lib/auth-context';
 import { revalidate } from '@/lib/data/revalidate';
 import { formatDate } from '@/lib/format';
 import { ROLE_LABELS, isAgency, type AppRole } from '@/lib/permissions';
+import type { MovableClientUser } from '@/lib/queries/clients';
 
 export interface PortalUser {
   id: string;
@@ -56,6 +58,7 @@ export function PortalAccessDialog({
   users,
   invitations,
   allClients,
+  elsewhere,
 }: {
   open: boolean;
   onClose: () => void;
@@ -65,13 +68,15 @@ export function PortalAccessDialog({
   invitations: PortalInvitation[];
   /** Every client, so someone can be moved to one of the others. */
   allClients: { id: string; company_name: string }[];
+  /** Client accounts belonging elsewhere, or nowhere, that could be moved here. */
+  elsewhere: MovableClientUser[];
 }) {
   const { profile, userId } = useAuth();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<PortalUser | null>(null);
   const [moving, setMoving] = useState<PortalUser | null>(null);
-  const [moveTo, setMoveTo] = useState('');
+  const [bringing, setBringing] = useState('');
 
   const isAdmin = profile ? isAgency(profile.role) : false;
 
@@ -141,10 +146,7 @@ export function PortalAccessDialog({
                       <button
                         type="button"
                         className="min-w-0 flex-1 rounded-lg px-2 py-1 text-left transition-colors hover:bg-[var(--surface-hover)]"
-                        onClick={() => {
-                          setMoving(user);
-                          setMoveTo('');
-                        }}
+                        onClick={() => setMoving(user)}
                         aria-label={`Move ${user.email} to a different client`}
                       >
                         <span className="block truncate text-[13px] font-medium">
@@ -245,6 +247,49 @@ export function PortalAccessDialog({
             </section>
           ) : null}
 
+          {/* --- Bring an account that already exists -------------------- */}
+          {elsewhere.length > 0 ? (
+            <section>
+              <h3 className="mb-2 text-[12px] font-medium tracking-wide text-[var(--text-muted)] uppercase">
+                Move an existing account here
+              </h3>
+              <p className="mb-2 text-[12px] text-[var(--text-secondary)]">
+                For someone who already has a login — filed under the wrong client, moved company,
+                or signed up without an invitation and is waiting for access.
+              </p>
+              <div className="flex flex-wrap items-end gap-2">
+                <div className="min-w-56 flex-1">
+                  <label htmlFor="bring-existing" className="sr-only">
+                    Choose an existing account
+                  </label>
+                  <Select
+                    id="bring-existing"
+                    value={bringing}
+                    onChange={(e) => setBringing(e.target.value)}
+                    placeholder="Choose an account"
+                    options={elsewhere.map((u) => ({
+                      value: u.id,
+                      label: `${u.full_name || u.email} — ${u.currentClient ?? 'no client yet'}`,
+                    }))}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={!bringing || isPending}
+                  onClick={() =>
+                    run(async () => {
+                      await reassignClientUserAction(bringing, clientId);
+                      setBringing('');
+                    })
+                  }
+                >
+                  {isPending ? 'Moving…' : `Move to ${clientName}`}
+                </Button>
+              </div>
+            </section>
+          ) : null}
+
           {users.length === 0 && invitations.length === 0 ? (
             <p className="flex items-center gap-1.5 text-[13px] text-[var(--text-secondary)]">
               <UserPlus className="h-4 w-4" aria-hidden="true" />
@@ -255,62 +300,13 @@ export function PortalAccessDialog({
       </Modal>
 
       {moving ? (
-        <Modal
+        <MoveClientUser
           open
           onClose={() => setMoving(null)}
-          title={`Move ${moving.full_name || moving.email}`}
-          description="Their access follows whichever client they belong to."
-          footer={
-            <>
-              <Button variant="ghost" type="button" onClick={() => setMoving(null)}>
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                disabled={!moveTo || isPending}
-                onClick={() =>
-                  run(async () => {
-                    await reassignClientUserAction(moving.id, moveTo);
-                    setMoving(null);
-                  })
-                }
-              >
-                {isPending ? 'Moving…' : 'Move'}
-              </Button>
-            </>
-          }
-        >
-          <div className="space-y-4">
-            <Alert variant="warning" title="They lose sight of this client">
-              From their next request they see {allClients.find((c) => c.id === moveTo)
-                ?.company_name ?? 'the new client'} instead of {clientName} — the projects, files,
-              requests and messages all change with them. Nothing they wrote is deleted; their
-              comments and uploads stay where they are.
-            </Alert>
-
-            <div>
-              <label htmlFor="move-to-client" className="block text-[13px] font-medium">
-                Move to
-              </label>
-              <Select
-                id="move-to-client"
-                className="mt-1.5"
-                value={moveTo}
-                onChange={(e) => setMoveTo(e.target.value)}
-                placeholder="Choose a client"
-                options={allClients
-                  .filter((c) => c.id !== clientId)
-                  .map((c) => ({ value: c.id, label: c.company_name }))}
-              />
-            </div>
-
-            {allClients.length < 2 ? (
-              <p className="text-[13px] text-[var(--text-muted)]">
-                There is only one client to belong to, so there is nowhere to move them yet.
-              </p>
-            ) : null}
-          </div>
-        </Modal>
+          user={moving}
+          currentClientName={clientName}
+          clients={allClients.filter((c) => c.id !== clientId)}
+        />
       ) : null}
 
       {deleting ? (

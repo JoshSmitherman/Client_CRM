@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { MoveClientUser } from '@/components/clients/move-client-user';
 import { ConfirmDelete } from '@/components/ui/confirm-delete';
 import { Table, TableWrap, Td, Th, Tr } from '@/components/ui/table';
 import {
@@ -24,6 +25,7 @@ export interface TeamMember {
   is_active: boolean;
   last_seen_at: string | null;
   job_title: string | null;
+  organisation_id: string | null;
 }
 
 export interface PendingInvite {
@@ -40,14 +42,21 @@ export function TeamTable({
   invitations,
   currentUserId,
   canManage,
+  clients,
+  clientByOrganisation,
 }: {
   members: TeamMember[];
   invitations: PendingInvite[];
   currentUserId: string;
   canManage: boolean;
+  /** Every client, so a client account can be filed under a different one. */
+  clients: { id: string; company_name: string; organisation_id: string }[];
+  /** organisation_id → client name, for showing where each client account sits. */
+  clientByOrganisation: Record<string, string>;
 }) {
   const [isPending, startTransition] = useTransition();
   const [deleting, setDeleting] = useState<TeamMember | null>(null);
+  const [moving, setMoving] = useState<TeamMember | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   function run(fn: () => Promise<void>) {
@@ -127,6 +136,16 @@ export function TeamTable({
                   ) : (
                     <span className="text-[13px]">{ROLE_LABELS[member.role]}</span>
                   )}
+
+                  {/* Which client, since that is what a client account's access
+                      actually follows — and what the Move button changes. */}
+                  {member.role === 'client' ? (
+                    <span className="mt-0.5 block text-[12px] text-[var(--text-muted)]">
+                      {member.organisation_id
+                        ? (clientByOrganisation[member.organisation_id] ?? 'Unknown client')
+                        : 'No client yet'}
+                    </span>
+                  ) : null}
                 </Td>
 
                 <Td>
@@ -157,6 +176,16 @@ export function TeamTable({
                         >
                           {member.is_active ? 'Remove access' : 'Restore'}
                         </Button>
+                        {member.role === 'client' ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={isPending}
+                            onClick={() => setMoving(member)}
+                          >
+                            Move
+                          </Button>
+                        ) : null}
                         <Button
                           size="icon"
                           variant="ghost"
@@ -212,6 +241,20 @@ export function TeamTable({
           </tbody>
         </Table>
       </TableWrap>
+
+      {moving ? (
+        <MoveClientUser
+          open
+          onClose={() => setMoving(null)}
+          user={moving}
+          currentClientName={
+            moving.organisation_id ? (clientByOrganisation[moving.organisation_id] ?? null) : null
+          }
+          clients={clients
+            .filter((c) => c.organisation_id !== moving.organisation_id)
+            .map((c) => ({ id: c.id, company_name: c.company_name }))}
+        />
+      ) : null}
 
       {deleting ? (
         <ConfirmDelete
