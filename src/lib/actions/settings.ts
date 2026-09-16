@@ -1,12 +1,9 @@
-'use server';
-
-import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
 import { recordAudit } from '@/lib/audit';
-import { requireAgencyAdmin } from '@/lib/auth';
-import { createClient } from '@/lib/supabase/server';
-import { email, formObject, optionalText, requiredText } from '@/lib/validation/common';
+import { requireAgencyAdminUser } from '@/lib/session';
+import { supabase } from '@/lib/supabase/client';
+import { formObject, optionalText, requiredText } from '@/lib/validation/common';
 import { errorState, successState, zodErrors, type ActionState } from './types';
 
 const settingsSchema = z.object({
@@ -75,7 +72,7 @@ export async function saveAgencySettingsAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  await requireAgencyAdmin();
+  await requireAgencyAdminUser();
 
   const parsed = settingsSchema.safeParse(formObject(formData));
   if (!parsed.success) {
@@ -83,7 +80,6 @@ export async function saveAgencySettingsAction(
   }
 
   const input = parsed.data;
-  const supabase = await createClient();
 
   const { error } = await supabase.from('agency_settings').upsert(
     {
@@ -120,8 +116,6 @@ export async function saveAgencySettingsAction(
       staff_default_role: input.staffDefaultRole,
     },
   });
-
-  revalidatePath('/', 'layout');
   return successState('Settings saved.');
 }
 
@@ -139,14 +133,12 @@ export async function updateStageAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  await requireAgencyAdmin();
+  await requireAgencyAdminUser();
 
   const parsed = stageSchema.safeParse(formObject(formData));
   if (!parsed.success) {
     return errorState('Check the details below.', zodErrors(parsed.error));
   }
-
-  const supabase = await createClient();
 
   const { error } = await supabase
     .from('lifecycle_stages')
@@ -158,8 +150,6 @@ export async function updateStageAction(
     .eq('id', stageId);
 
   if (error) return errorState(`Could not save the stage: ${error.message}`);
-
-  revalidatePath('/', 'layout');
   return successState('Stage updated.');
 }
 
@@ -168,10 +158,7 @@ export async function updateStageAction(
  * already sitting in it — which is why stages are data rather than an enum.
  */
 export async function setStageActiveAction(stageId: string, isActive: boolean): Promise<void> {
-  await requireAgencyAdmin();
-  const supabase = await createClient();
+  await requireAgencyAdminUser();
 
   await supabase.from('lifecycle_stages').update({ is_active: isActive }).eq('id', stageId);
-
-  revalidatePath('/', 'layout');
 }

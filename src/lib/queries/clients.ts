@@ -1,10 +1,7 @@
-import 'server-only';
-
-import { createClient } from '@/lib/supabase/server';
 import { OPEN_CHANGE_STATUSES, OPEN_SUPPORT_STATUSES } from '@/lib/constants';
+import { supabase } from '@/lib/supabase/client';
 
 export async function getClients(search?: string) {
-  const supabase = await createClient();
 
   let query = supabase
     .from('clients')
@@ -48,7 +45,6 @@ export async function getClients(search?: string) {
 }
 
 export async function getClient(clientId: string) {
-  const supabase = await createClient();
 
   const { data, error } = await supabase
     .from('clients')
@@ -66,7 +62,6 @@ export async function getClient(clientId: string) {
 
 /** Everything the client detail page shows alongside the record itself. */
 export async function getClientOverview(clientId: string) {
-  const supabase = await createClient();
 
   const [projects, subscriptions, changeRequests, supportRequests, contacts, activity] =
     await Promise.all([
@@ -119,7 +114,6 @@ export async function getClientOverview(clientId: string) {
 
 /** Portal users belonging to this client, plus any outstanding invitations. */
 export async function getClientContacts(clientId: string) {
-  const supabase = await createClient();
 
   const { data: client } = await supabase
     .from('clients')
@@ -150,7 +144,6 @@ export async function getClientContacts(clientId: string) {
 
 /** Agency staff who can be set as account manager. */
 export async function getAccountManagers() {
-  const supabase = await createClient();
 
   const { data } = await supabase
     .from('users')

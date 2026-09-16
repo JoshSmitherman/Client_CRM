@@ -1,6 +1,4 @@
-'use client';
-
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTransition } from 'react';
 
 import { cn } from '@/lib/utils';
@@ -14,9 +12,9 @@ const TOGGLES = [
 
 /** Toggle chips that read and write the URL, so a view can be bookmarked. */
 export function TaskFilters() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const params = useSearchParams();
+  const navigate = useNavigate();
+  const pathname = useLocation().pathname;
+  const [params] = useSearchParams();
   const [isPending, startTransition] = useTransition();
 
   function toggle(key: string, value: string) {
@@ -25,7 +23,7 @@ export function TaskFilters() {
     else next.set(key, value);
 
     startTransition(() => {
-      router.replace(`${pathname}?${next.toString()}`, { scroll: false });
+      navigate(`${pathname}?${next.toString()}`, { replace: true });
     });
   }
 

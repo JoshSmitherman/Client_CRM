@@ -1,12 +1,9 @@
-'use server';
-
-import { revalidatePath } from 'next/cache';
 
 import { recordActivity } from '@/lib/activity';
-import { requireUser } from '@/lib/auth';
 import { clientNotificationTargets, notify, projectNotificationTargets } from '@/lib/notifications';
 import { isAgency } from '@/lib/permissions';
-import { createClient } from '@/lib/supabase/server';
+import { currentUser } from '@/lib/session';
+import { supabase } from '@/lib/supabase/client';
 import type { Enums } from '@/lib/supabase/database.types';
 import { errorState, successState, zodErrors, type ActionState } from './types';
 import { z } from 'zod';
@@ -45,7 +42,7 @@ export async function addCommentAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const session = await requireUser();
+  const session = await currentUser();
 
   const parsed = commentSchema.safeParse(formObject(formData));
   if (!parsed.success) {
@@ -55,8 +52,6 @@ export async function addCommentAction(
   const input = parsed.data;
   const agency = isAgency(session.profile.role);
   const isInternal = agency ? input.isInternal : false;
-
-  const supabase = await createClient();
 
   const { data: comment, error } = await supabase
     .from('comments')
@@ -125,15 +120,12 @@ export async function addCommentAction(
     visibility: isInternal ? 'internal' : 'client',
     actorName: session.profile.full_name,
   });
-
-  revalidatePath('/', 'layout');
   return successState();
 }
 
 /** Soft-deletes a comment. Only the author or an administrator may do this. */
 export async function deleteCommentAction(commentId: string): Promise<void> {
-  const session = await requireUser();
-  const supabase = await createClient();
+  const session = await currentUser();
 
   const { data: comment } = await supabase
     .from('comments')
@@ -151,6 +143,4 @@ export async function deleteCommentAction(commentId: string): Promise<void> {
     .from('comments')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', commentId);
-
-  revalidatePath('/', 'layout');
 }

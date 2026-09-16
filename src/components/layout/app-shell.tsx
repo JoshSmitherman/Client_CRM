@@ -1,7 +1,5 @@
-'use client';
-
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { Link } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { Menu, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -36,7 +34,7 @@ export function AppShell({
   isAdmin: boolean;
   children: ReactNode;
 }) {
-  const pathname = usePathname();
+  const pathname = useLocation().pathname;
   const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -180,7 +178,7 @@ export function AppShell({
             return (
               <Link
                 key={item.href}
-                href={item.href}
+                to={item.href}
                 aria-current={active ? 'page' : undefined}
                 className={cn(
                   'flex flex-col items-center gap-0.5 px-1 py-2 text-[10px] font-medium',
@@ -237,7 +235,7 @@ function NavList({
         return (
           <Link
             key={item.href}
-            href={item.href}
+            to={item.href}
             aria-current={active ? 'page' : undefined}
             title={collapsed ? item.label : undefined}
             className={cn(

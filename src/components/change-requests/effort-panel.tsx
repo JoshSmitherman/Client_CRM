@@ -1,12 +1,9 @@
-'use client';
-
-import { useActionState } from 'react';
 
 import { Card, CardBody, CardFooter, CardHeader } from '@/components/ui/card';
 import { Field, Input } from '@/components/ui/field';
 import { FormMessage, SubmitButton } from '@/components/ui/form-status';
 import { logChangeEffortAction } from '@/lib/actions/change-requests';
-import { idleState } from '@/lib/actions/types';
+import { useFormAction } from '@/lib/data/use-form-action';
 import { formatDuration } from '@/lib/format';
 
 /**
@@ -23,7 +20,7 @@ export function EffortPanel({
   drawsDownAllowance: boolean;
 }) {
   const action = logChangeEffortAction.bind(null, requestId);
-  const [state, formAction] = useActionState(action, idleState);
+  const [state, formAction] = useFormAction(action);
   const e = state.errors ?? {};
 
   return (

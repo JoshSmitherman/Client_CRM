@@ -1,9 +1,8 @@
-'use client';
-
 import { useState, useTransition } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { cancelChangeRequestAction } from '@/lib/actions/change-requests';
+import { revalidate } from '@/lib/data/revalidate';
 
 /** Only offered while a request is still untriaged, which is when it is allowed. */
 export function CancelRequestButton({ requestId }: { requestId: string }) {
@@ -30,6 +29,7 @@ export function CancelRequestButton({ requestId }: { requestId: string }) {
           startTransition(async () => {
             try {
               await cancelChangeRequestAction(requestId);
+              revalidate();
             } catch (e) {
               setError(e instanceof Error ? e.message : 'Could not withdraw the request.');
             }

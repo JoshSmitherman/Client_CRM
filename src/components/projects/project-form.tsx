@@ -1,14 +1,12 @@
-'use client';
-
-import Link from 'next/link';
-import { useActionState } from 'react';
+import { Link } from 'react-router-dom';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardBody, CardFooter, CardHeader } from '@/components/ui/card';
 import { Checkbox, Field, Input, Select, Textarea } from '@/components/ui/field';
 import { FormMessage, SubmitButton } from '@/components/ui/form-status';
+import { type ActionState } from '@/lib/actions/types';
 import { PROJECT_TYPE_LABELS, toOptions } from '@/lib/constants';
-import { idleState, type ActionState } from '@/lib/actions/types';
+import { useFormAction } from '@/lib/data/use-form-action';
 
 export function ProjectForm({
   action,
@@ -25,7 +23,7 @@ export function ProjectForm({
   submitLabel: string;
   cancelHref: string;
 }) {
-  const [state, formAction] = useActionState(action, idleState);
+  const [state, formAction] = useFormAction(action);
   const e = state.errors ?? {};
 
   return (
@@ -137,7 +135,7 @@ export function ProjectForm({
         </CardBody>
         <CardFooter>
           <Button variant="ghost" asChild>
-            <Link href={cancelHref}>Cancel</Link>
+            <Link to={cancelHref}>Cancel</Link>
           </Button>
           <SubmitButton pendingLabel="Creating…">{submitLabel}</SubmitButton>
         </CardFooter>

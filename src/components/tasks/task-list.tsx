@@ -1,7 +1,5 @@
-'use client';
-
 import { AlertCircle, ListTodo, Pencil, Trash2 } from 'lucide-react';
-import Link from 'next/link';
+import { Link } from 'react-router-dom';
 import { useState, useTransition } from 'react';
 
 import { Avatar } from '@/components/ui/avatar';
@@ -9,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { deleteTaskAction, setTaskStatusAction } from '@/lib/actions/tasks';
+import { revalidate } from '@/lib/data/revalidate';
 import {
   PRIORITY_LABELS,
   PRIORITY_TONES,
@@ -88,6 +87,7 @@ function TaskItem({
     startTransition(async () => {
       try {
         await setTaskStatusAction(task.id, complete ? 'to_do' : 'complete');
+        revalidate();
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Could not update the task.');
       }
@@ -142,7 +142,7 @@ function TaskItem({
 
           {showProject && task.project ? (
             <Link
-              href={`/projects/${task.project.id}/tasks`}
+              to={`/projects/${task.project.id}/tasks`}
               className="text-[12px] text-[var(--accent-text)] hover:underline"
             >
               {task.project.name}
@@ -166,7 +166,7 @@ function TaskItem({
               <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
             </Button>
           ) : null}
-          <form action={async () => { await deleteTaskAction(task.id); }}>
+          <form action={async () => { await deleteTaskAction(task.id); revalidate(); }}>
             <Button variant="ghost" size="icon" type="submit" aria-label={`Delete ${task.title}`}>
               <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
             </Button>

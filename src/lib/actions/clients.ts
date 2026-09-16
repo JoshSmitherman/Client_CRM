@@ -1,18 +1,14 @@
-'use server';
-
-import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
 
 import { recordActivity } from '@/lib/activity';
 import { AuditAction, recordAudit } from '@/lib/audit';
-import { requireAgency } from '@/lib/auth';
-import { isAgencyManager } from '@/lib/permissions';
 import { setInternalNote } from '@/lib/internal-notes';
-import { createClient } from '@/lib/supabase/server';
+import { isAgencyManager } from '@/lib/permissions';
+import { requireAgencyUser } from '@/lib/session';
+import { supabase } from '@/lib/supabase/client';
+import { slugify } from '@/lib/utils';
 import { clientSchema } from '@/lib/validation/clients';
 import { formObject } from '@/lib/validation/common';
-import { slugify } from '@/lib/utils';
-import { errorState, zodErrors, type ActionState } from './types';
+import { errorState, successState, zodErrors, type ActionState } from './types';
 
 /**
  * Creates the client's organisation and CRM record together.
@@ -25,7 +21,7 @@ export async function createClientAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const session = await requireAgency();
+  const session = await requireAgencyUser();
 
   if (!isAgencyManager(session.profile.role)) {
     return errorState('Only project managers and administrators can create clients.');
@@ -37,7 +33,6 @@ export async function createClientAction(
   }
 
   const input = parsed.data;
-  const supabase = await createClient();
 
   // Slugs must be unique; suffix until one is free.
   const baseSlug = slugify(input.companyName) || 'client';
@@ -119,10 +114,7 @@ export async function createClientAction(
       actorName: session.profile.full_name,
     }),
   ]);
-
-  revalidatePath('/clients');
-  revalidatePath('/dashboard');
-  redirect(`/clients/${client.id}`);
+  return successState(undefined, `/clients/${client.id}`);
 }
 
 export async function updateClientAction(
@@ -130,7 +122,7 @@ export async function updateClientAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const session = await requireAgency();
+  const session = await requireAgencyUser();
 
   const parsed = clientSchema.safeParse(formObject(formData));
   if (!parsed.success) {
@@ -138,7 +130,6 @@ export async function updateClientAction(
   }
 
   const input = parsed.data;
-  const supabase = await createClient();
 
   const { data: before } = await supabase
     .from('clients')
@@ -204,20 +195,18 @@ export async function updateClientAction(
       email: input.email ?? null,
     },
   });
-
-  revalidatePath(`/clients/${clientId}`);
-  revalidatePath('/clients');
-  redirect(`/clients/${clientId}`);
+  return successState(undefined, `/clients/${clientId}`);
 }
 
-/** Soft-deletes a client. History, audit rows and invoicing evidence survive. */
-export async function archiveClientAction(clientId: string): Promise<void> {
-  const session = await requireAgency();
+/**
+ * Soft-deletes a client. History, audit rows and invoicing evidence survive.
+ * Returns where to go next so the caller can navigate.
+ */
+export async function archiveClientAction(clientId: string): Promise<string> {
+  const session = await requireAgencyUser();
   if (session.profile.role !== 'agency_admin') {
     throw new Error('Only an administrator can archive a client.');
   }
-
-  const supabase = await createClient();
 
   const { data: before } = await supabase
     .from('clients')
@@ -237,6 +226,5 @@ export async function archiveClientAction(clientId: string): Promise<void> {
     previousValue: { company_name: before?.company_name ?? null },
   });
 
-  revalidatePath('/clients');
-  redirect('/clients');
+  return '/clients';
 }

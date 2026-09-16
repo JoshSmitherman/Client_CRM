@@ -1,13 +1,11 @@
-'use client';
-
-import { useActionState, useState } from 'react';
+import { useState } from 'react';
 
 import { Alert } from '@/components/ui/alert';
 import { Card, CardBody, CardFooter, CardHeader } from '@/components/ui/card';
 import { Checkbox, Field, Input } from '@/components/ui/field';
 import { FormMessage, SubmitButton } from '@/components/ui/form-status';
 import { acceptHandoverAction } from '@/lib/actions/handover';
-import { idleState } from '@/lib/actions/types';
+import { useFormAction } from '@/lib/data/use-form-action';
 
 const STATEMENT =
   'I confirm that I have reviewed the website, that the changes we requested have been ' +
@@ -31,7 +29,7 @@ export function AcceptanceForm({
   defaultName: string;
 }) {
   const action = acceptHandoverAction.bind(null, projectId, handoverId);
-  const [state, formAction] = useActionState(action, idleState);
+  const [state, formAction] = useFormAction(action);
   const [trainingNotApplicable, setTrainingNotApplicable] = useState(false);
   const e = state.errors ?? {};
 

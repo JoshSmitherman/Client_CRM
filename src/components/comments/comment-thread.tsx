@@ -1,7 +1,5 @@
-'use client';
-
 import { Lock, Reply, Trash2 } from 'lucide-react';
-import { useActionState, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -10,7 +8,8 @@ import { Checkbox, Textarea } from '@/components/ui/field';
 import { EmptyState } from '@/components/ui/empty-state';
 import { FormMessage, SubmitButton } from '@/components/ui/form-status';
 import { addCommentAction, deleteCommentAction } from '@/lib/actions/comments';
-import { idleState } from '@/lib/actions/types';
+import { revalidate } from '@/lib/data/revalidate';
+import { useFormAction } from '@/lib/data/use-form-action';
 import { formatDateTime, formatRelative } from '@/lib/format';
 import type { CommentNode } from '@/lib/queries/comments';
 import { cn } from '@/lib/utils';
@@ -166,6 +165,7 @@ function CommentItem({
               action={async () => {
                 setIsDeleting(true);
                 await deleteCommentAction(comment.id);
+                revalidate();
               }}
             >
               <Button variant="ghost" size="sm" type="submit" disabled={isDeleting}>
@@ -238,7 +238,7 @@ function CommentForm({
   compact?: boolean;
   onPosted?: () => void;
 }) {
-  const [state, action] = useActionState(addCommentAction, idleState);
+  const [state, action] = useFormAction(addCommentAction);
   const formRef = useRef<HTMLFormElement>(null);
 
   // Clear the box on success so the next comment starts from empty.

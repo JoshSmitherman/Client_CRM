@@ -1,6 +1,4 @@
-'use client';
-
-import { useActionState, useState } from 'react';
+import { useState } from 'react';
 
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -8,13 +6,13 @@ import { Card, CardBody, CardFooter, CardHeader } from '@/components/ui/card';
 import { Field, Input, Textarea } from '@/components/ui/field';
 import { FormMessage, SubmitButton } from '@/components/ui/form-status';
 import { savePageContentAction } from '@/lib/actions/content';
-import { idleState } from '@/lib/actions/types';
 import { PAGE_STATUS_LABELS } from '@/lib/constants';
+import { useFormAction } from '@/lib/data/use-form-action';
 import type { Tables } from '@/lib/supabase/database.types';
 
 export function PageContentForm({ page }: { page: Tables<'website_pages'> }) {
   const action = savePageContentAction.bind(null, page.id);
-  const [state, formAction] = useActionState(action, idleState);
+  const [state, formAction] = useFormAction(action);
   const e = state.errors ?? {};
 
   const existingCtas = Array.isArray(page.calls_to_action)

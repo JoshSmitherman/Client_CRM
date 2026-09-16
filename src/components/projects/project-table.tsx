@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { Link } from 'react-router-dom';
 
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -43,7 +43,7 @@ export function ProjectTable({
               <Tr key={project.id}>
                 <Td>
                   <Link
-                    href={`/projects/${project.id}`}
+                    to={`/projects/${project.id}`}
                     className="font-medium hover:text-[var(--accent-text)] hover:underline"
                   >
                     {project.name}
@@ -56,7 +56,7 @@ export function ProjectTable({
                 <Td>
                   {project.clients ? (
                     <Link
-                      href={`/clients/${project.clients.id}`}
+                      to={`/clients/${project.clients.id}`}
                       className="text-[13px] hover:text-[var(--accent-text)] hover:underline"
                     >
                       {project.clients.company_name}

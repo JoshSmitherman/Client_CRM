@@ -1,6 +1,4 @@
-'use client';
-
-import { useActionState, useState } from 'react';
+import { useState } from 'react';
 import { Plus, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -8,7 +6,7 @@ import { Card, CardBody, CardFooter, CardHeader } from '@/components/ui/card';
 import { Checkbox, Field, Input, Select, Textarea } from '@/components/ui/field';
 import { FormMessage, SubmitButton } from '@/components/ui/form-status';
 import { saveSubscriptionAction } from '@/lib/actions/maintenance';
-import { idleState } from '@/lib/actions/types';
+import { useFormAction } from '@/lib/data/use-form-action';
 import {
   BILLING_FREQUENCY_LABELS,
   SUBSCRIPTION_STATUS_LABELS,
@@ -37,7 +35,7 @@ export function SubscriptionForm({
   onDone?: () => void;
 }) {
   const action = saveSubscriptionAction.bind(null, subscription?.id ?? null);
-  const [state, formAction] = useActionState(action, idleState);
+  const [state, formAction] = useFormAction(action);
   const e = state.errors ?? {};
 
   // Choosing a plan pre-fills price and allowances, but they stay editable —

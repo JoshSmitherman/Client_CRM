@@ -1,8 +1,6 @@
-'use client';
-
 import { ChevronDown, ChevronUp, FileText, Plus, Trash2 } from 'lucide-react';
-import Link from 'next/link';
-import { useActionState, useState, useTransition } from 'react';
+import { Link } from 'react-router-dom';
+import { useState, useTransition } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,8 +9,9 @@ import { Checkbox, Field, Input, Select } from '@/components/ui/field';
 import { EmptyState } from '@/components/ui/empty-state';
 import { FormMessage, SubmitButton } from '@/components/ui/form-status';
 import { createPageAction, deletePageAction, movePageAction } from '@/lib/actions/content';
-import { idleState } from '@/lib/actions/types';
 import { PAGE_KIND_LABELS, PAGE_STATUS_LABELS, PAGE_STATUS_TONES, toOptions } from '@/lib/constants';
+import { revalidate } from '@/lib/data/revalidate';
+import { useFormAction } from '@/lib/data/use-form-action';
 import type { Enums } from '@/lib/supabase/database.types';
 import { cn } from '@/lib/utils';
 
@@ -65,7 +64,7 @@ export function SitemapTree({
   canEdit: boolean;
 }) {
   const action = createPageAction.bind(null, projectId);
-  const [state, formAction] = useActionState(action, idleState);
+  const [state, formAction] = useFormAction(action);
   const [adding, setAdding] = useState(false);
 
   const flat: PageNode[] = [];
@@ -193,7 +192,7 @@ function PageRow({
       >
         <div className="min-w-0 flex-1">
           <Link
-            href={`${basePath}/${page.id}`}
+            to={`${basePath}/${page.id}`}
             className="text-[14px] font-medium hover:text-[var(--accent-text)] hover:underline"
           >
             {page.title}
@@ -213,7 +212,7 @@ function PageRow({
               variant="ghost"
               size="icon"
               disabled={isPending || isFirst}
-              onClick={() => startTransition(async () => { await movePageAction(page.id, 'up'); })}
+              onClick={() => startTransition(async () => { await movePageAction(page.id, 'up'); revalidate(); })}
               aria-label={`Move ${page.title} up`}
             >
               <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />
@@ -222,12 +221,12 @@ function PageRow({
               variant="ghost"
               size="icon"
               disabled={isPending || isLast}
-              onClick={() => startTransition(async () => { await movePageAction(page.id, 'down'); })}
+              onClick={() => startTransition(async () => { await movePageAction(page.id, 'down'); revalidate(); })}
               aria-label={`Move ${page.title} down`}
             >
               <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
             </Button>
-            <form action={async () => { await deletePageAction(page.id); }}>
+            <form action={async () => { await deletePageAction(page.id); revalidate(); }}>
               <Button variant="ghost" size="icon" type="submit" aria-label={`Remove ${page.title}`}>
                 <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
               </Button>

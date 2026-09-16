@@ -1,13 +1,11 @@
-'use client';
-
-import Link from 'next/link';
-import { useActionState } from 'react';
+import { Link } from 'react-router-dom';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardBody, CardFooter, CardHeader } from '@/components/ui/card';
 import { Checkbox, Field, Input, Select, Textarea } from '@/components/ui/field';
 import { FormMessage, SubmitButton } from '@/components/ui/form-status';
-import { idleState, type ActionState } from '@/lib/actions/types';
+import { type ActionState } from '@/lib/actions/types';
+import { useFormAction } from '@/lib/data/use-form-action';
 import type { Tables } from '@/lib/supabase/database.types';
 
 export interface ClientFormProps {
@@ -32,7 +30,7 @@ export function ClientForm({
   submitLabel,
   cancelHref,
 }: ClientFormProps) {
-  const [state, formAction] = useActionState(action, idleState);
+  const [state, formAction] = useFormAction(action);
   const e = state.errors ?? {};
 
   return (
@@ -197,7 +195,7 @@ export function ClientForm({
         </CardBody>
         <CardFooter>
           <Button variant="ghost" asChild>
-            <Link href={cancelHref}>Cancel</Link>
+            <Link to={cancelHref}>Cancel</Link>
           </Button>
           <SubmitButton pendingLabel="Saving…">{submitLabel}</SubmitButton>
         </CardFooter>

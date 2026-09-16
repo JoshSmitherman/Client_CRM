@@ -1,17 +1,14 @@
-'use server';
-
-import { revalidatePath } from 'next/cache';
 
 import { recordActivity } from '@/lib/activity';
 import { AuditAction, recordAudit } from '@/lib/audit';
-import { requireUser } from '@/lib/auth';
 import { clientNotificationTargets, notify, projectNotificationTargets } from '@/lib/notifications';
 import { isAgency } from '@/lib/permissions';
-import { createClient } from '@/lib/supabase/server';
+import { currentUser } from '@/lib/session';
+import { supabase } from '@/lib/supabase/client';
+import type { Json } from '@/lib/supabase/database.types';
 import { slugify } from '@/lib/utils';
 import { formObject } from '@/lib/validation/common';
 import { pageContentSchema, pageSchema } from '@/lib/validation/content';
-import type { Json } from '@/lib/supabase/database.types';
 import { errorState, successState, zodErrors, type ActionState } from './types';
 
 export async function createPageAction(
@@ -19,7 +16,7 @@ export async function createPageAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const session = await requireUser();
+  const session = await currentUser();
   if (!isAgency(session.profile.role)) {
     return errorState('Only agency users can add pages to the sitemap.');
   }
@@ -30,7 +27,6 @@ export async function createPageAction(
   }
 
   const input = parsed.data;
-  const supabase = await createClient();
 
   // New pages go to the end of their level.
   const { count } = await supabase
@@ -52,8 +48,6 @@ export async function createPageAction(
   });
 
   if (error) return errorState(`Could not add the page: ${error.message}`);
-
-  revalidatePath(`/projects/${projectId}/content`);
   return successState('Page added.');
 }
 
@@ -68,7 +62,7 @@ export async function savePageContentAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const session = await requireUser();
+  const session = await currentUser();
 
   const parsed = pageContentSchema.safeParse(formObject(formData));
   if (!parsed.success) {
@@ -77,7 +71,6 @@ export async function savePageContentAction(
 
   const input = parsed.data;
   const submitting = String(formData.get('intent') ?? 'save') === 'submit';
-  const supabase = await createClient();
 
   const { data: before } = await supabase
     .from('website_pages')
@@ -145,8 +138,6 @@ export async function savePageContentAction(
       }),
     ]);
   }
-
-  revalidatePath('/', 'layout');
   return successState(
     submitting ? 'Submitted for review.' : 'Saved. You can come back to this later.',
   );
@@ -158,7 +149,7 @@ export async function reviewPageAction(
   decision: 'approved' | 'needs_changes',
   feedback?: string,
 ): Promise<void> {
-  const session = await requireUser();
+  const session = await currentUser();
   if (!isAgency(session.profile.role)) {
     throw new Error('Only agency users can approve page content.');
   }
@@ -166,8 +157,6 @@ export async function reviewPageAction(
   if (decision === 'needs_changes' && !feedback?.trim()) {
     throw new Error('Explain what the client needs to change.');
   }
-
-  const supabase = await createClient();
 
   const { data: page } = await supabase
     .from('website_pages')
@@ -241,14 +230,11 @@ export async function reviewPageAction(
         })
       : Promise.resolve(),
   ]);
-
-  revalidatePath('/', 'layout');
 }
 
 /** Reorders a page within the sitemap. */
 export async function movePageAction(pageId: string, direction: 'up' | 'down'): Promise<void> {
-  await requireUser();
-  const supabase = await createClient();
+  await currentUser();
 
   const { data: page } = await supabase
     .from('website_pages')
@@ -279,26 +265,14 @@ export async function movePageAction(pageId: string, direction: 'up' | 'down'): 
     supabase.from('website_pages').update({ position: swapWith.position }).eq('id', pageId),
     supabase.from('website_pages').update({ position: page.position }).eq('id', swapWith.id),
   ]);
-
-  revalidatePath(`/projects/${page.project_id}/content`);
 }
 
 export async function deletePageAction(pageId: string): Promise<void> {
-  const session = await requireUser();
+  const session = await currentUser();
   if (!isAgency(session.profile.role)) throw new Error('Only agency users can remove pages.');
-
-  const supabase = await createClient();
-
-  const { data: page } = await supabase
-    .from('website_pages')
-    .select('project_id')
-    .eq('id', pageId)
-    .maybeSingle();
 
   await supabase
     .from('website_pages')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', pageId);
-
-  if (page) revalidatePath(`/projects/${page.project_id}/content`);
 }

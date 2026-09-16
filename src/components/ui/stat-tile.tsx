@@ -1,8 +1,8 @@
-import Link from 'next/link';
+import { Link } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
 
-import { cn } from '@/lib/utils';
 import type { Tone } from '@/lib/constants';
+import { cn } from '@/lib/utils';
 
 const ICON_TONES: Record<Tone, string> = {
   neutral: 'bg-[var(--surface-sunken)] text-[var(--text-secondary)]',
@@ -51,7 +51,7 @@ export function StatTile({
   );
 
   return href ? (
-    <Link href={href} className={className}>
+    <Link to={href} className={className}>
       {content}
     </Link>
   ) : (

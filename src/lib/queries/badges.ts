@@ -1,7 +1,5 @@
-import 'server-only';
-
-import { createClient } from '@/lib/supabase/server';
 import { OPEN_CHANGE_STATUSES, OPEN_SUPPORT_STATUSES } from '@/lib/constants';
+import { supabase } from '@/lib/supabase/client';
 
 /**
  * Counts for the sidebar badges. Every query is RLS-scoped, so an account
@@ -10,7 +8,6 @@ import { OPEN_CHANGE_STATUSES, OPEN_SUPPORT_STATUSES } from '@/lib/constants';
  * Uses head:true counts — no rows come back over the wire, only the total.
  */
 export async function getAgencyBadges(): Promise<Record<string, number>> {
-  const supabase = await createClient();
   const today = new Date().toISOString().slice(0, 10);
 
   const [changeRequests, support, tasks, notifications, maintenance] = await Promise.all([
@@ -51,7 +48,6 @@ export async function getAgencyBadges(): Promise<Record<string, number>> {
 }
 
 export async function getClientBadges(): Promise<Record<string, number>> {
-  const supabase = await createClient();
 
   const [requests, support, notifications] = await Promise.all([
     supabase

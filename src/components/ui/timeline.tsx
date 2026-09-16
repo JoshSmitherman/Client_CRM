@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
-import { cn } from '@/lib/utils';
 import { formatDateTime, formatRelative } from '@/lib/format';
+import { cn } from '@/lib/utils';
 
 export interface TimelineEntry {
   id: string;

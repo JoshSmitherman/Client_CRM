@@ -1,6 +1,4 @@
-import 'server-only';
-
-import { createClient } from '@/lib/supabase/server';
+import { supabase } from '@/lib/supabase/client';
 import type { Enums } from '@/lib/supabase/database.types';
 
 export interface NotificationInput {
@@ -27,7 +25,6 @@ export async function notify(input: NotificationInput): Promise<void> {
   if (recipients.length === 0) return;
 
   try {
-    const supabase = await createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -59,7 +56,6 @@ export async function notify(input: NotificationInput): Promise<void> {
 
 /** Agency users who should hear about activity on a project. */
 export async function projectNotificationTargets(projectId: string): Promise<string[]> {
-  const supabase = await createClient();
 
   const [{ data: members }, { data: admins }] = await Promise.all([
     supabase.from('project_members').select('user_id').eq('project_id', projectId),
@@ -76,7 +72,6 @@ export async function projectNotificationTargets(projectId: string): Promise<str
 
 /** Portal users belonging to a client organisation. */
 export async function clientNotificationTargets(clientId: string): Promise<string[]> {
-  const supabase = await createClient();
 
   const { data: client } = await supabase
     .from('clients')

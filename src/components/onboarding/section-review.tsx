@@ -1,5 +1,3 @@
-'use client';
-
 import { Check, RotateCcw, SlashSquare, X } from 'lucide-react';
 import { useState, useTransition } from 'react';
 

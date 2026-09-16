@@ -1,13 +1,11 @@
-'use client';
-
 import { Plus, X } from 'lucide-react';
-import { useActionState, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Checkbox, Field, Input, Select, Textarea } from '@/components/ui/field';
 import { FormMessage, SubmitButton } from '@/components/ui/form-status';
 import { createTaskAction, updateTaskAction } from '@/lib/actions/tasks';
-import { idleState } from '@/lib/actions/types';
+import { useFormAction } from '@/lib/data/use-form-action';
 import {
   PRIORITY_LABELS,
   RESPONSIBILITY_LABELS,
@@ -33,7 +31,7 @@ export interface TaskDialogProps {
  */
 export function TaskDialog({ projectId, staff, milestones, task, open, onClose }: TaskDialogProps) {
   const action = task ? updateTaskAction.bind(null, task.id) : createTaskAction;
-  const [state, formAction] = useActionState(action, idleState);
+  const [state, formAction] = useFormAction(action);
   const [responsibility, setResponsibility] = useState(task?.responsibility ?? 'agency');
 
   useEffect(() => {

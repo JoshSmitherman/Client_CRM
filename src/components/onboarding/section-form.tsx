@@ -1,14 +1,11 @@
-'use client';
-
-import { useActionState } from 'react';
 
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardBody, CardFooter, CardHeader } from '@/components/ui/card';
 import { FormMessage, SubmitButton } from '@/components/ui/form-status';
 import { saveOnboardingSectionAction } from '@/lib/actions/onboarding';
-import { idleState } from '@/lib/actions/types';
 import { ONBOARDING_STATUS_LABELS } from '@/lib/constants';
+import { useFormAction } from '@/lib/data/use-form-action';
 import type { OnboardingSectionDef } from '@/lib/onboarding-template';
 import type { Enums } from '@/lib/supabase/database.types';
 import { FieldRenderer } from './field-renderer';
@@ -29,7 +26,7 @@ export function SectionForm({
   readOnly?: boolean;
 }) {
   const action = saveOnboardingSectionAction.bind(null, sectionId);
-  const [state, formAction] = useActionState(action, idleState);
+  const [state, formAction] = useFormAction(action);
   const errors = state.errors ?? {};
 
   const locked = readOnly || status === 'submitted' || status === 'not_required';

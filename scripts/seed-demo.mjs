@@ -6,7 +6,7 @@
  *   node scripts/seed-demo.mjs --reset         # remove demo rows first, then re-seed
  *   node scripts/seed-demo.mjs --admin-only --email you@youragency.com
  *
- * Requires NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env.local.
+ * Requires VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env.local.
  * The service role key is used only here and never reaches the browser.
  */
 import { readFileSync, existsSync } from 'node:fs';
@@ -28,13 +28,13 @@ function loadEnvLocal() {
 
 loadEnvLocal();
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!SUPABASE_URL || !SERVICE_KEY) {
   console.error(
     '\nMissing configuration.\n\n' +
-      '  NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in .env.local.\n' +
+      '  VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in .env.local.\n' +
       '  Find both at: Supabase Dashboard > Project Settings > API\n\n' +
       '  See docs/SETUP.md step 4.\n',
   );

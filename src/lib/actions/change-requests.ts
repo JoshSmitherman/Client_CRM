@@ -1,16 +1,12 @@
-'use server';
-
-import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
 
 import { recordActivity } from '@/lib/activity';
 import { AuditAction, recordAudit } from '@/lib/audit';
-import { requireUser } from '@/lib/auth';
 import { CHANGE_STATUS_LABELS } from '@/lib/constants';
-import { clientNotificationTargets, notify, projectNotificationTargets } from '@/lib/notifications';
 import { setInternalNote } from '@/lib/internal-notes';
+import { clientNotificationTargets, notify, projectNotificationTargets } from '@/lib/notifications';
 import { isAgency } from '@/lib/permissions';
-import { createClient } from '@/lib/supabase/server';
+import { currentUser } from '@/lib/session';
+import { supabase } from '@/lib/supabase/client';
 import type { Enums } from '@/lib/supabase/database.types';
 import { formObject } from '@/lib/validation/common';
 import {
@@ -20,6 +16,7 @@ import {
   quoteDecisionSchema,
   quoteSchema,
 } from '@/lib/validation/change-requests';
+import { uploadFilesAction } from './files';
 import { errorState, successState, zodErrors, type ActionState } from './types';
 
 /**
@@ -33,7 +30,7 @@ export async function createChangeRequestAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const session = await requireUser();
+  const session = await currentUser();
 
   const parsed = changeRequestSchema.safeParse(formObject(formData));
   if (!parsed.success) {
@@ -41,7 +38,6 @@ export async function createChangeRequestAction(
   }
 
   const input = parsed.data;
-  const supabase = await createClient();
 
   const { data: project } = await supabase
     .from('projects')
@@ -94,7 +90,6 @@ export async function createChangeRequestAction(
     uploadData.set('clientId', project.client_id);
     for (const file of attachments) uploadData.append('files', file);
 
-    const { uploadFilesAction } = await import('./files');
     await uploadFilesAction({ status: 'idle' }, uploadData);
 
     // Link the newly uploaded files to this request.
@@ -136,14 +131,9 @@ export async function createChangeRequestAction(
       url: `/change-requests/${request.id}`,
     }),
   ]);
-
-  revalidatePath('/', 'layout');
-
-  redirect(
-    isAgency(session.profile.role)
+  return successState(undefined, isAgency(session.profile.role)
       ? `/change-requests/${request.id}`
-      : `/portal/requests/${request.id}`,
-  );
+      : `/portal/requests/${request.id}`);
 }
 
 /** Agency triage: status, assignment, billing treatment and notes. */
@@ -152,7 +142,7 @@ export async function triageChangeRequestAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const session = await requireUser();
+  const session = await currentUser();
   if (!isAgency(session.profile.role)) {
     return errorState('Only agency users can triage change requests.');
   }
@@ -169,8 +159,6 @@ export async function triageChangeRequestAction(
       rejectedReason: 'Explain why this request is being rejected.',
     });
   }
-
-  const supabase = await createClient();
 
   const { data: before } = await supabase
     .from('change_requests')
@@ -261,8 +249,6 @@ export async function triageChangeRequestAction(
       actorName: session.profile.full_name,
     });
   }
-
-  revalidatePath('/', 'layout');
   return successState('Request updated.');
 }
 
@@ -277,7 +263,7 @@ export async function offerQuoteAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const session = await requireUser();
+  const session = await currentUser();
   if (!isAgency(session.profile.role)) {
     return errorState('Only agency users can issue a quotation.');
   }
@@ -288,7 +274,6 @@ export async function offerQuoteAction(
   }
 
   const input = parsed.data;
-  const supabase = await createClient();
 
   const { data: request } = await supabase
     .from('change_requests')
@@ -367,8 +352,6 @@ export async function offerQuoteAction(
       url: `/portal/requests/${requestId}`,
     }),
   ]);
-
-  revalidatePath('/', 'layout');
   return successState('Quotation sent to the client.');
 }
 
@@ -378,7 +361,7 @@ export async function decideQuoteAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const session = await requireUser();
+  const session = await currentUser();
 
   const parsed = quoteDecisionSchema.safeParse(formObject(formData));
   if (!parsed.success) {
@@ -395,8 +378,6 @@ export async function decideQuoteAction(
           : 'Tell us what you would like clarified.',
     });
   }
-
-  const supabase = await createClient();
 
   const { error: decisionError } = await supabase
     .from('change_request_approvals')
@@ -484,8 +465,6 @@ export async function decideQuoteAction(
       }),
     ]);
   }
-
-  revalidatePath('/', 'layout');
   return successState('Thank you — your decision has been recorded.');
 }
 
@@ -498,7 +477,7 @@ export async function logChangeEffortAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const session = await requireUser();
+  const session = await currentUser();
   if (!isAgency(session.profile.role)) {
     return errorState('Only agency users can log effort.');
   }
@@ -509,7 +488,6 @@ export async function logChangeEffortAction(
   }
 
   const input = parsed.data;
-  const supabase = await createClient();
 
   const { data: request } = await supabase
     .from('change_requests')
@@ -561,15 +539,12 @@ export async function logChangeEffortAction(
       actorName: session.profile.full_name,
     }),
   ]);
-
-  revalidatePath('/', 'layout');
   return successState('Effort logged.');
 }
 
 /** A client withdrawing their own request before work starts. */
 export async function cancelChangeRequestAction(requestId: string): Promise<void> {
-  const session = await requireUser();
-  const supabase = await createClient();
+  const session = await currentUser();
 
   const { data: request } = await supabase
     .from('change_requests')
@@ -605,6 +580,4 @@ export async function cancelChangeRequestAction(requestId: string): Promise<void
       actorName: session.profile.full_name,
     }),
   ]);
-
-  revalidatePath('/', 'layout');
 }

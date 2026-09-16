@@ -1,5 +1,3 @@
-'use client';
-
 import { Inbox } from 'lucide-react';
 import { useState, useTransition } from 'react';
 
@@ -8,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { reviewPlanRequestAction } from '@/lib/actions/maintenance';
 import { PLAN_REQUEST_STATUS_LABELS, PLAN_REQUEST_TYPE_LABELS } from '@/lib/constants';
+import { revalidate } from '@/lib/data/revalidate';
 import { formatDateTime, formatRelative } from '@/lib/format';
 import type { Enums } from '@/lib/supabase/database.types';
 import { cn } from '@/lib/utils';
@@ -62,6 +61,7 @@ function RequestItem({ request }: { request: PlanRequestRow }) {
     startTransition(async () => {
       try {
         await reviewPlanRequestAction(request.id, decision, reason);
+        revalidate();
         setDeclining(false);
         setNotes('');
       } catch (e) {

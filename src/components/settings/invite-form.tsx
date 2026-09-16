@@ -1,7 +1,5 @@
-'use client';
-
 import { UserPlus, X } from 'lucide-react';
-import { useActionState, useState } from 'react';
+import { useState } from 'react';
 
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -9,7 +7,7 @@ import { Card, CardBody, CardFooter, CardHeader } from '@/components/ui/card';
 import { Field, Input, Select, Textarea } from '@/components/ui/field';
 import { FormMessage, SubmitButton } from '@/components/ui/form-status';
 import { sendInvitationAction } from '@/lib/actions/team';
-import { idleState } from '@/lib/actions/types';
+import { useFormAction } from '@/lib/data/use-form-action';
 import { AGENCY_ROLES, CLIENT_ROLES, ROLE_LABELS } from '@/lib/permissions';
 
 export function InviteForm({
@@ -19,7 +17,7 @@ export function InviteForm({
   clients: { id: string; company_name: string }[];
   canInviteAgency: boolean;
 }) {
-  const [state, action] = useActionState(sendInvitationAction, idleState);
+  const [state, action] = useFormAction(sendInvitationAction);
   const [open, setOpen] = useState(false);
   const [role, setRole] = useState<string>(canInviteAgency ? 'developer' : 'client_member');
 

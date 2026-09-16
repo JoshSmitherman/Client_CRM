@@ -1,7 +1,5 @@
-'use client';
-
-import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { Link } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 
 import { cn } from '@/lib/utils';
 
@@ -16,7 +14,7 @@ export interface TabItem {
  * is shareable, and works without JavaScript.
  */
 export function Tabs({ items, className }: { items: TabItem[]; className?: string }) {
-  const pathname = usePathname();
+  const pathname = useLocation().pathname;
   const search = useSearchParams();
   const current = search.toString() ? `${pathname}?${search}` : pathname;
 
@@ -33,7 +31,7 @@ export function Tabs({ items, className }: { items: TabItem[]; className?: strin
         return (
           <Link
             key={item.href}
-            href={item.href}
+            to={item.href}
             aria-current={active ? 'page' : undefined}
             className={cn(
               'flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors',

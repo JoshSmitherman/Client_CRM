@@ -1,7 +1,5 @@
-'use client';
-
 import { Package, Plus, Trash2 } from 'lucide-react';
-import { useActionState, useState, useTransition } from 'react';
+import { useState, useTransition } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,8 +12,9 @@ import {
   deleteDeliverableAction,
   toggleDeliverableAction,
 } from '@/lib/actions/planning';
-import { idleState } from '@/lib/actions/types';
 import { RESPONSIBILITY_LABELS, toOptions } from '@/lib/constants';
+import { revalidate } from '@/lib/data/revalidate';
+import { useFormAction } from '@/lib/data/use-form-action';
 import { formatDate, isOverdue } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
@@ -36,7 +35,7 @@ export function DeliverableList({
   deliverables: DeliverableRow[];
 }) {
   const action = addDeliverableAction.bind(null, projectId);
-  const [state, formAction] = useActionState(action, idleState);
+  const [state, formAction] = useFormAction(action);
   const [adding, setAdding] = useState(false);
 
   return (
@@ -107,6 +106,7 @@ function DeliverableItem({ deliverable }: { deliverable: DeliverableRow }) {
         onChange={() =>
           startTransition(async () => {
             await toggleDeliverableAction(deliverable.id, !deliverable.is_complete);
+            revalidate();
           })
         }
         aria-label={`Mark ${deliverable.title} ${deliverable.is_complete ? 'incomplete' : 'complete'}`}
@@ -139,7 +139,7 @@ function DeliverableItem({ deliverable }: { deliverable: DeliverableRow }) {
         </p>
       </div>
 
-      <form action={async () => { await deleteDeliverableAction(deliverable.id); }}>
+      <form action={async () => { await deleteDeliverableAction(deliverable.id); revalidate(); }}>
         <Button variant="ghost" size="icon" type="submit" aria-label={`Delete ${deliverable.title}`}>
           <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
         </Button>

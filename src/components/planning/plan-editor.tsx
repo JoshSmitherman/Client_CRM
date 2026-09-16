@@ -1,12 +1,9 @@
-'use client';
-
-import { useActionState } from 'react';
 
 import { Card, CardBody, CardFooter, CardHeader } from '@/components/ui/card';
 import { Field, Textarea } from '@/components/ui/field';
 import { FormMessage, SubmitButton } from '@/components/ui/form-status';
 import { savePlanAction } from '@/lib/actions/planning';
-import { idleState } from '@/lib/actions/types';
+import { useFormAction } from '@/lib/data/use-form-action';
 import type { Tables } from '@/lib/supabase/database.types';
 
 export function PlanEditor({
@@ -20,7 +17,7 @@ export function PlanEditor({
   internalNote: string;
 }) {
   const action = savePlanAction.bind(null, projectId);
-  const [state, formAction] = useActionState(action, idleState);
+  const [state, formAction] = useFormAction(action);
 
   return (
     <form action={formAction} noValidate>

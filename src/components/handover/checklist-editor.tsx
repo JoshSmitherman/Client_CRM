@@ -1,7 +1,5 @@
-'use client';
-
 import { Plus, Trash2 } from 'lucide-react';
-import { useActionState, useState, useTransition } from 'react';
+import { useState, useTransition } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,8 +12,9 @@ import {
   deleteHandoverItemAction,
   setHandoverItemStatusAction,
 } from '@/lib/actions/handover';
-import { idleState } from '@/lib/actions/types';
 import { HANDOVER_ITEM_STATUS_LABELS } from '@/lib/constants';
+import { revalidate } from '@/lib/data/revalidate';
+import { useFormAction } from '@/lib/data/use-form-action';
 import type { Enums } from '@/lib/supabase/database.types';
 import { cn } from '@/lib/utils';
 
@@ -39,7 +38,7 @@ export function ChecklistEditor({
   canEdit: boolean;
 }) {
   const action = addHandoverItemAction.bind(null, checklistId, projectId);
-  const [state, formAction] = useActionState(action, idleState);
+  const [state, formAction] = useFormAction(action);
   const [adding, setAdding] = useState(false);
 
   // "Not applicable" items are excluded from the denominator, the same rule
@@ -109,6 +108,7 @@ function ChecklistItem({ item, canEdit }: { item: HandoverItemRow; canEdit: bool
     startTransition(async () => {
       try {
         await setHandoverItemStatusAction(item.id, status);
+        revalidate();
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Could not update the item.');
       }
@@ -161,7 +161,7 @@ function ChecklistItem({ item, canEdit }: { item: HandoverItemRow; canEdit: bool
           >
             {notApplicable ? 'Reinstate' : 'N/A'}
           </Button>
-          <form action={async () => { await deleteHandoverItemAction(item.id); }}>
+          <form action={async () => { await deleteHandoverItemAction(item.id); revalidate(); }}>
             <Button variant="ghost" size="icon" type="submit" aria-label={`Remove ${item.title}`}>
               <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
             </Button>

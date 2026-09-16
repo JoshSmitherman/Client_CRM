@@ -1,15 +1,12 @@
-'use server';
-
-import { revalidatePath } from 'next/cache';
 
 import { recordActivity } from '@/lib/activity';
 import { AuditAction, recordAudit } from '@/lib/audit';
-import { getCurrentClientId, requireAgency, requireUser } from '@/lib/auth';
 import { PLAN_REQUEST_TYPE_LABELS } from '@/lib/constants';
-import { clientNotificationTargets, notify } from '@/lib/notifications';
 import { setInternalNote } from '@/lib/internal-notes';
+import { clientNotificationTargets, notify } from '@/lib/notifications';
 import { isAgency, isAgencyAdmin } from '@/lib/permissions';
-import { createClient } from '@/lib/supabase/server';
+import { currentClientId, currentUser, requireAgencyUser } from '@/lib/session';
+import { supabase } from '@/lib/supabase/client';
 import { slugify } from '@/lib/utils';
 import { formObject } from '@/lib/validation/common';
 import {
@@ -34,7 +31,7 @@ export async function savePlanAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const session = await requireAgency();
+  const session = await requireAgencyUser();
   if (!isAgencyAdmin(session.profile.role)) {
     return errorState('Only an administrator can change maintenance plans.');
   }
@@ -45,7 +42,6 @@ export async function savePlanAction(
   }
 
   const input = parsed.data;
-  const supabase = await createClient();
 
   const values = {
     name: input.name,
@@ -106,8 +102,6 @@ export async function savePlanAction(
       newValue: { name: input.name },
     });
   }
-
-  revalidatePath('/maintenance');
   return successState('Plan saved.');
 }
 
@@ -116,7 +110,7 @@ export async function saveSubscriptionAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const session = await requireAgency();
+  const session = await requireAgencyUser();
 
   const parsed = subscriptionSchema.safeParse(formObject(formData));
   if (!parsed.success) {
@@ -124,7 +118,6 @@ export async function saveSubscriptionAction(
   }
 
   const input = parsed.data;
-  const supabase = await createClient();
 
   const values = {
     client_id: input.clientId,
@@ -239,8 +232,6 @@ export async function saveSubscriptionAction(
       }),
     ]);
   }
-
-  revalidatePath('/', 'layout');
   return successState('Subscription saved.');
 }
 
@@ -250,7 +241,7 @@ export async function recordUsageAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const session = await requireAgency();
+  const session = await requireAgencyUser();
 
   const parsed = usageSchema.safeParse(formObject(formData));
   if (!parsed.success) {
@@ -258,7 +249,6 @@ export async function recordUsageAction(
   }
 
   const input = parsed.data;
-  const supabase = await createClient();
 
   const { data: subscription } = await supabase
     .from('maintenance_subscriptions')
@@ -300,8 +290,6 @@ export async function recordUsageAction(
       manual: true,
     },
   });
-
-  revalidatePath('/', 'layout');
   return successState(
     input.minutes < 0 ? 'Correction recorded.' : 'Usage recorded against the allowance.',
   );
@@ -311,7 +299,7 @@ export async function createReminderAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const session = await requireAgency();
+  const session = await requireAgencyUser();
 
   const parsed = reminderSchema.safeParse(formObject(formData));
   if (!parsed.success) {
@@ -319,7 +307,6 @@ export async function createReminderAction(
   }
 
   const input = parsed.data;
-  const supabase = await createClient();
 
   const { data: settings } = await supabase
     .from('agency_settings')
@@ -340,8 +327,6 @@ export async function createReminderAction(
   });
 
   if (error) return errorState(`Could not create the reminder: ${error.message}`);
-
-  revalidatePath('/maintenance');
   return successState('Reminder scheduled.');
 }
 
@@ -349,8 +334,7 @@ export async function setReminderStatusAction(
   reminderId: string,
   status: 'scheduled' | 'due' | 'acknowledged' | 'completed' | 'dismissed',
 ): Promise<void> {
-  await requireAgency();
-  const supabase = await createClient();
+  await requireAgencyUser();
 
   await supabase
     .from('renewal_reminders')
@@ -359,9 +343,6 @@ export async function setReminderStatusAction(
       completed_at: status === 'completed' ? new Date().toISOString() : null,
     })
     .eq('id', reminderId);
-
-  revalidatePath('/maintenance');
-  revalidatePath('/dashboard');
 }
 
 /**
@@ -372,7 +353,7 @@ export async function requestPlanChangeAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const session = await requireUser();
+  const session = await currentUser();
 
   const parsed = planRequestSchema.safeParse(formObject(formData));
   if (!parsed.success) {
@@ -380,10 +361,8 @@ export async function requestPlanChangeAction(
   }
 
   const input = parsed.data;
-  const clientId = await getCurrentClientId();
+  const clientId = await currentClientId();
   if (!clientId) return errorState('Could not determine which client you belong to.');
-
-  const supabase = await createClient();
 
   const { data: request, error } = await supabase
     .from('maintenance_plan_requests')
@@ -428,8 +407,6 @@ export async function requestPlanChangeAction(
       url: '/maintenance?tab=requests',
     }),
   ]);
-
-  revalidatePath('/', 'layout');
   return successState(
     'Thank you — your account manager will be in touch. Nothing has changed on your plan yet.',
   );
@@ -440,7 +417,7 @@ export async function reviewPlanRequestAction(
   decision: 'approved' | 'declined',
   responseNotes?: string,
 ): Promise<void> {
-  const session = await requireUser();
+  const session = await currentUser();
   if (!isAgency(session.profile.role)) {
     throw new Error('Only agency users can review plan requests.');
   }
@@ -448,8 +425,6 @@ export async function reviewPlanRequestAction(
   if (decision === 'declined' && !responseNotes?.trim()) {
     throw new Error('Explain why the request is being declined.');
   }
-
-  const supabase = await createClient();
 
   const { data: request } = await supabase
     .from('maintenance_plan_requests')
@@ -495,18 +470,14 @@ export async function reviewPlanRequestAction(
 
   // Approving records the intent; the subscription itself is edited explicitly,
   // so a plan change is never applied by accident.
-  revalidatePath('/', 'layout');
 }
 
 /** A client withdrawing their own pending request. */
 export async function withdrawPlanRequestAction(requestId: string): Promise<void> {
-  await requireUser();
-  const supabase = await createClient();
+  await currentUser();
 
   await supabase
     .from('maintenance_plan_requests')
     .update({ status: 'withdrawn' })
     .eq('id', requestId);
-
-  revalidatePath('/', 'layout');
 }

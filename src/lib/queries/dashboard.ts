@@ -1,8 +1,6 @@
-import 'server-only';
-
-import { createClient } from '@/lib/supabase/server';
-import type { Enums } from '@/lib/supabase/database.types';
 import { OPEN_CHANGE_STATUSES, OPEN_SUPPORT_STATUSES } from '@/lib/constants';
+import { supabase } from '@/lib/supabase/client';
+import type { Enums } from '@/lib/supabase/database.types';
 import { addDays } from './badges';
 
 export interface DashboardFilters {
@@ -59,7 +57,6 @@ const PROJECT_SELECT = `
  * rows, and RLS narrows each figure to what this user is allowed to see.
  */
 export async function getDashboardStats(): Promise<DashboardStats> {
-  const supabase = await createClient();
   const today = new Date().toISOString().slice(0, 10);
   const in30Days = addDays(today, 30);
 
@@ -150,7 +147,6 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 
 /** Filtered project list backing both the dashboard and /projects. */
 export async function getProjects(filters: DashboardFilters = {}, limit = 50) {
-  const supabase = await createClient();
 
   let query = supabase
     .from('projects')
@@ -224,7 +220,6 @@ export async function getProjects(filters: DashboardFilters = {}, limit = 50) {
 
 /** Items needing agency attention, grouped for the dashboard panels. */
 export async function getAttentionLists() {
-  const supabase = await createClient();
   const today = new Date().toISOString().slice(0, 10);
 
   const [submissions, quotes, overdueTasks, renewals, criticalTickets] = await Promise.all([
@@ -277,7 +272,6 @@ export async function getAttentionLists() {
 
 /** Options for the dashboard and project-index filter bar. */
 export async function getFilterOptions() {
-  const supabase = await createClient();
 
   const [clients, staff, stages, plans] = await Promise.all([
     supabase

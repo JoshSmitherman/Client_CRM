@@ -1,14 +1,11 @@
-'use client';
-
-import { useActionState } from 'react';
 
 import { Alert } from '@/components/ui/alert';
 import { Card, CardBody, CardFooter, CardHeader } from '@/components/ui/card';
 import { Field, Input, Select, Textarea } from '@/components/ui/field';
 import { FormMessage, SubmitButton } from '@/components/ui/form-status';
 import { triageSupportRequestAction } from '@/lib/actions/support';
-import { idleState } from '@/lib/actions/types';
 import { SUPPORT_STATUS_LABELS, URGENCY_LABELS, toOptions } from '@/lib/constants';
+import { useFormAction } from '@/lib/data/use-form-action';
 import { formatDuration } from '@/lib/format';
 import type { Tables } from '@/lib/supabase/database.types';
 
@@ -25,7 +22,7 @@ export function SupportTriagePanel({
   internalNote: string;
 }) {
   const action = triageSupportRequestAction.bind(null, ticket.id);
-  const [state, formAction] = useActionState(action, idleState);
+  const [state, formAction] = useFormAction(action);
   const e = state.errors ?? {};
 
   return (

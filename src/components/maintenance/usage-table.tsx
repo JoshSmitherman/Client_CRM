@@ -1,5 +1,5 @@
 import { Clock } from 'lucide-react';
-import Link from 'next/link';
+import { Link } from 'react-router-dom';
 
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -58,7 +58,7 @@ export function UsageTable({
                   <span className="block text-[12px] text-[var(--text-muted)]">
                     {linkBase ? (
                       <Link
-                        href={`${linkBase}/${row.change_requests.id}`}
+                        to={`${linkBase}/${row.change_requests.id}`}
                         className="font-mono hover:underline"
                       >
                         {row.change_requests.reference}

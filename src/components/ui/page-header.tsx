@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import type { ReactNode } from 'react';
 
@@ -33,7 +33,7 @@ export function PageHeader({
               <li key={`${crumb.label}-${i}`} className="flex items-center gap-1">
                 {i > 0 ? <ChevronRight className="h-3 w-3" aria-hidden="true" /> : null}
                 {crumb.href ? (
-                  <Link href={crumb.href} className="hover:text-[var(--text-primary)] hover:underline">
+                  <Link to={crumb.href} className="hover:text-[var(--text-primary)] hover:underline">
                     {crumb.label}
                   </Link>
                 ) : (

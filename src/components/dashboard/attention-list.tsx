@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -38,7 +38,7 @@ export function AttentionList({
         action={
           viewAllHref && items.length > 0 ? (
             <Link
-              href={viewAllHref}
+              to={viewAllHref}
               className="text-[13px] font-medium text-[var(--accent-text)] hover:underline"
             >
               View all
@@ -54,7 +54,7 @@ export function AttentionList({
           {items.map((item) => (
             <li key={item.id}>
               <Link
-                href={item.href}
+                to={item.href}
                 className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-[var(--surface-hover)]"
               >
                 <span className="min-w-0 flex-1">

@@ -30,14 +30,13 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      # The app renders every authenticated page at request time, so a build
-      # needs no real credentials — placeholders are enough to prove it compiles.
+      # Nothing is fetched at build time, so placeholder credentials are
+      # enough to prove the application compiles and bundles.
       - name: Build
         run: npm run build
         env:
-          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
-          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+          VITE_SUPABASE_URL: https://placeholder.supabase.co
+          VITE_SUPABASE_ANON_KEY: placeholder-anon-key
 
   database:
     name: Schema and Row Level Security
@@ -62,9 +61,10 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
 
       # Applies every migration twice, then the generated single-file
-      # setup.sql twice, then 27 Row Level Security assertions covering tenant
-      # isolation, internal-comment visibility, cross-tenant writes, column
-      # guards, state transitions, privilege escalation and audit immutability.
+      # setup.sql twice, then the Row Level Security assertions: tenant
+      # isolation, internal notes and comments, cross-tenant writes, column
+      # guards, state transitions, privilege escalation, audit immutability,
+      # the staff signup ladder, and what a signed-out visitor can reach.
       - name: Verify the schema and security policies
         run: ./scripts/verify-schema.sh localhost 5432
         env:

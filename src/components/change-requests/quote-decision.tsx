@@ -1,15 +1,13 @@
-'use client';
-
-import { useActionState, useState } from 'react';
+import { useState } from 'react';
 
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardBody, CardFooter, CardHeader } from '@/components/ui/card';
-import { Field, Input, Textarea } from '@/components/ui/field';
+import { Field, Textarea } from '@/components/ui/field';
 import { FormMessage, SubmitButton } from '@/components/ui/form-status';
 import { decideQuoteAction } from '@/lib/actions/change-requests';
-import { idleState } from '@/lib/actions/types';
 import { BILLING_TREATMENT_LABELS } from '@/lib/constants';
+import { useFormAction } from '@/lib/data/use-form-action';
 import { formatCurrency, formatDate } from '@/lib/format';
 import type { QuoteRow } from './quote-panel';
 
@@ -23,7 +21,7 @@ type Decision = 'approved' | 'rejected' | 'clarification_requested';
  */
 export function QuoteDecision({ requestId, quote }: { requestId: string; quote: QuoteRow }) {
   const action = decideQuoteAction.bind(null, requestId);
-  const [state, formAction] = useActionState(action, idleState);
+  const [state, formAction] = useFormAction(action);
   const [decision, setDecision] = useState<Decision | null>(null);
 
   return (

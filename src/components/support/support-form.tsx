@@ -1,14 +1,11 @@
-'use client';
-
-import { useActionState } from 'react';
 
 import { Alert } from '@/components/ui/alert';
 import { Card, CardBody, CardFooter, CardHeader } from '@/components/ui/card';
 import { Field, Input, Select, Textarea } from '@/components/ui/field';
 import { FormMessage, SubmitButton } from '@/components/ui/form-status';
 import { createSupportRequestAction } from '@/lib/actions/support';
-import { idleState } from '@/lib/actions/types';
 import { SUPPORT_CATEGORY_LABELS, URGENCY_LABELS, toOptions } from '@/lib/constants';
+import { useFormAction } from '@/lib/data/use-form-action';
 
 export function SupportForm({
   projects,
@@ -19,7 +16,7 @@ export function SupportForm({
   planName: string | null;
   responseTimeHours: number | null;
 }) {
-  const [state, action] = useActionState(createSupportRequestAction, idleState);
+  const [state, action] = useFormAction(createSupportRequestAction);
   const e = state.errors ?? {};
 
   return (

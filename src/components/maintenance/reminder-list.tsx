@@ -1,5 +1,3 @@
-'use client';
-
 import { BellRing, Check, X } from 'lucide-react';
 import { useState, useTransition } from 'react';
 
@@ -8,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { setReminderStatusAction } from '@/lib/actions/maintenance';
 import { REMINDER_STATUS_LABELS, REMINDER_TYPE_LABELS, type Tone } from '@/lib/constants';
+import { revalidate } from '@/lib/data/revalidate';
 import { daysUntil, formatDate } from '@/lib/format';
 import type { Enums } from '@/lib/supabase/database.types';
 import { cn } from '@/lib/utils';
@@ -70,6 +69,7 @@ function ReminderItem({ reminder }: { reminder: ReminderRow }) {
     startTransition(async () => {
       try {
         await setReminderStatusAction(reminder.id, status);
+        revalidate();
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Could not update the reminder.');
       }

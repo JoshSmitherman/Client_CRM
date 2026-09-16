@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { Link } from 'react-router-dom';
 import { LifeBuoy } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -62,7 +62,7 @@ export function TicketTable({
             <Tr key={ticket.id}>
               <Td>
                 <Link
-                  href={`${basePath}/${ticket.id}`}
+                  to={`${basePath}/${ticket.id}`}
                   className="font-medium hover:text-[var(--accent-text)] hover:underline"
                 >
                   {ticket.subject}
@@ -77,7 +77,7 @@ export function TicketTable({
                 <Td className="text-[13px]">
                   {ticket.clients ? (
                     <Link
-                      href={`/clients/${ticket.clients.id}`}
+                      to={`/clients/${ticket.clients.id}`}
                       className="hover:text-[var(--accent-text)] hover:underline"
                     >
                       {ticket.clients.company_name}

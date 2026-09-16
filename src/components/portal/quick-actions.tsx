@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { Link } from 'react-router-dom';
 import {
   ArrowRight,
   ClipboardList,
@@ -86,7 +86,7 @@ export function QuickActions({
       {actions.map((action) => (
         <Link
           key={action.href}
-          href={action.href}
+          to={action.href}
           className={cn(
             'group flex items-start gap-3 rounded-xl border p-4 transition-colors',
             action.primary

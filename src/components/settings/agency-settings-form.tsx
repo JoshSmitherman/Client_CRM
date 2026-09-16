@@ -1,17 +1,14 @@
-'use client';
-
-import { useActionState } from 'react';
 
 import { Card, CardBody, CardFooter, CardHeader } from '@/components/ui/card';
 import { Checkbox, Field, Input, Select, Textarea } from '@/components/ui/field';
 import { FormMessage, SubmitButton } from '@/components/ui/form-status';
 import { saveAgencySettingsAction } from '@/lib/actions/settings';
-import { idleState } from '@/lib/actions/types';
+import { useFormAction } from '@/lib/data/use-form-action';
 import { AGENCY_ROLES, ROLE_LABELS } from '@/lib/permissions';
 import type { Tables } from '@/lib/supabase/database.types';
 
 export function AgencySettingsForm({ settings }: { settings: Tables<'agency_settings'> | null }) {
-  const [state, action] = useActionState(saveAgencySettingsAction, idleState);
+  const [state, action] = useFormAction(saveAgencySettingsAction);
   const e = state.errors ?? {};
 
   return (

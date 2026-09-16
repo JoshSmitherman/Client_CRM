@@ -1,6 +1,4 @@
-import 'server-only';
-
-import { createClient } from '@/lib/supabase/server';
+import { supabase } from '@/lib/supabase/client';
 
 /**
  * Agency-only free text.
@@ -8,10 +6,10 @@ import { createClient } from '@/lib/supabase/server';
  * These notes deliberately do not live on the entity tables. Row Level Security
  * restricts rows, not columns — so a note stored on a change request the client
  * is allowed to read would be readable by that client straight from the API,
- * however carefully the application avoided selecting it.
+ * which matters all the more now the browser talks to that API directly.
  *
  * `public.internal_notes` has no client policy at all, so there is nothing to
- * forget.
+ * remember not to select.
  */
 export type InternalNoteEntity =
   | 'client'
@@ -25,8 +23,6 @@ export async function getInternalNote(
   entityType: InternalNoteEntity,
   entityId: string,
 ): Promise<string> {
-  const supabase = await createClient();
-
   const { data } = await supabase
     .from('internal_notes')
     .select('body')
@@ -44,8 +40,6 @@ export async function getInternalNotes(
 ): Promise<Map<string, string>> {
   if (entityIds.length === 0) return new Map();
 
-  const supabase = await createClient();
-
   const { data } = await supabase
     .from('internal_notes')
     .select('entity_id, body')
@@ -58,8 +52,8 @@ export async function getInternalNotes(
 /**
  * Writes a note, or removes it when the text is cleared.
  *
- * Never throws: a note failing to save must not roll back the work it was
- * attached to, but it must be visible in the server logs.
+ * Never throws: a note failing to save must not fail the work it was attached
+ * to, but it must be visible in the console.
  */
 export async function setInternalNote(params: {
   entityType: InternalNoteEntity;
@@ -69,7 +63,6 @@ export async function setInternalNote(params: {
   clientId?: string | null;
   userId: string;
 }): Promise<void> {
-  const supabase = await createClient();
   const body = (params.body ?? '').trim();
 
   try {

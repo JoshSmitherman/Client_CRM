@@ -202,6 +202,14 @@ out += `    };
         }[];
       };
       sweep_maintenance_state: { Args: Record<PropertyKey, never>; Returns: Json };
+      staff_signup_hints: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          signup_mode: string;
+          email_domains: string[];
+          is_first_account: boolean;
+        }[];
+      };
       record_audit: {
         Args: {
           p_action: string;

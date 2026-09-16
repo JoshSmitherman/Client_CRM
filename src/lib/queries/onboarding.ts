@@ -1,8 +1,6 @@
-import 'server-only';
-
-import { createClient } from '@/lib/supabase/server';
-import { missingRequiredFields } from '@/lib/validation/onboarding';
+import { supabase } from '@/lib/supabase/client';
 import type { Tables } from '@/lib/supabase/database.types';
+import { missingRequiredFields } from '@/lib/validation/onboarding';
 
 export interface OnboardingSectionView extends Tables<'onboarding_sections'> {
   missingRequired: string[];
@@ -19,7 +17,6 @@ export interface OnboardingSummary {
 }
 
 export async function getOnboarding(projectId: string): Promise<OnboardingSummary> {
-  const supabase = await createClient();
 
   const { data, error } = await supabase
     .from('onboarding_sections')
@@ -51,7 +48,6 @@ export async function getOnboarding(projectId: string): Promise<OnboardingSummar
 }
 
 export async function getOnboardingSection(projectId: string, key: string) {
-  const supabase = await createClient();
 
   const { data } = await supabase
     .from('onboarding_sections')

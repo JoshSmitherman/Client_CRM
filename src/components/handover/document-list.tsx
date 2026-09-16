@@ -1,8 +1,7 @@
-'use client';
+import { BookOpen, ExternalLink, Plus, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 
-import { BookOpen, Download, ExternalLink, Plus, Trash2 } from 'lucide-react';
-import { useActionState, useState } from 'react';
-
+import { DownloadButton } from '@/components/files/download-button';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader } from '@/components/ui/card';
@@ -10,8 +9,9 @@ import { Checkbox, Field, Input, Select } from '@/components/ui/field';
 import { EmptyState } from '@/components/ui/empty-state';
 import { FormMessage, SubmitButton } from '@/components/ui/form-status';
 import { addHandoverDocumentAction, deleteHandoverDocumentAction } from '@/lib/actions/handover';
-import { idleState } from '@/lib/actions/types';
 import { HANDOVER_DOC_TYPE_LABELS } from '@/lib/constants';
+import { revalidate } from '@/lib/data/revalidate';
+import { useFormAction } from '@/lib/data/use-form-action';
 import { ACCEPT_ATTRIBUTE } from '@/lib/files';
 
 export interface HandoverDocumentRow {
@@ -37,7 +37,7 @@ export function DocumentList({
   canEdit: boolean;
 }) {
   const action = addHandoverDocumentAction.bind(null, handoverId, projectId);
-  const [state, formAction] = useActionState(action, idleState);
+  const [state, formAction] = useFormAction(action);
   const [adding, setAdding] = useState(false);
 
   return (
@@ -151,13 +151,7 @@ export function DocumentList({
               </div>
 
               <div className="flex shrink-0 items-center gap-1">
-                {doc.file_id ? (
-                  <Button variant="ghost" size="icon" asChild>
-                    <a href={`/api/files/${doc.file_id}`} aria-label={`Download ${doc.title}`}>
-                      <Download className="h-4 w-4" aria-hidden="true" />
-                    </a>
-                  </Button>
-                ) : null}
+                {doc.file_id ? <DownloadButton fileId={doc.file_id} label={doc.title} /> : null}
                 {doc.external_url ? (
                   <Button variant="ghost" size="icon" asChild>
                     <a
@@ -171,7 +165,7 @@ export function DocumentList({
                   </Button>
                 ) : null}
                 {canEdit ? (
-                  <form action={async () => { await deleteHandoverDocumentAction(doc.id); }}>
+                  <form action={async () => { await deleteHandoverDocumentAction(doc.id); revalidate(); }}>
                     <Button variant="ghost" size="icon" type="submit" aria-label={`Remove ${doc.title}`}>
                       <Trash2 className="h-4 w-4" aria-hidden="true" />
                     </Button>

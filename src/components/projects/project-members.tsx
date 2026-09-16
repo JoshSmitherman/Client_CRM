@@ -1,5 +1,3 @@
-'use client';
-
 import { UserPlus, X } from 'lucide-react';
 import { useState, useTransition } from 'react';
 
@@ -9,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardBody, CardHeader } from '@/components/ui/card';
 import { Checkbox, Field, Select } from '@/components/ui/field';
 import { addProjectMemberAction, removeProjectMemberAction } from '@/lib/actions/projects';
+import { revalidate } from '@/lib/data/revalidate';
 import { ROLE_LABELS, type AppRole } from '@/lib/permissions';
 
 export interface MemberRow {
@@ -135,6 +134,7 @@ export function ProjectMembers({
                   onClick={() =>
                     startTransition(async () => {
                       await removeProjectMemberAction(projectId, member.id);
+                      revalidate();
                     })
                   }
                   aria-label={`Remove ${member.users?.full_name ?? 'member'}`}

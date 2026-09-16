@@ -1,6 +1,4 @@
-import 'server-only';
-
-import { createClient } from '@/lib/supabase/server';
+import { supabase } from '@/lib/supabase/client';
 import type { Enums, Tables } from '@/lib/supabase/database.types';
 
 export interface CommentNode extends Tables<'comments'> {
@@ -19,7 +17,6 @@ export async function getComments(params: {
   entityType: Enums<'comment_entity'>;
   entityId: string;
 }): Promise<CommentNode[]> {
-  const supabase = await createClient();
 
   const { data, error } = await supabase
     .from('comments')
@@ -36,7 +33,6 @@ export async function getComments(params: {
 
 /** All comments on a project, whatever they are attached to. */
 export async function getProjectComments(projectId: string): Promise<CommentNode[]> {
-  const supabase = await createClient();
 
   const { data, error } = await supabase
     .from('comments')

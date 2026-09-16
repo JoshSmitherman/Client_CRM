@@ -1,5 +1,3 @@
-'use client';
-
 import { Send } from 'lucide-react';
 import { useState, useTransition } from 'react';
 
@@ -9,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardBody, CardHeader } from '@/components/ui/card';
 import { setHandoverStatusAction } from '@/lib/actions/handover';
 import { HANDOVER_STATUS_LABELS, HANDOVER_STATUS_TONES } from '@/lib/constants';
+import { revalidate } from '@/lib/data/revalidate';
 import { formatDateTime } from '@/lib/format';
 import type { Enums } from '@/lib/supabase/database.types';
 
@@ -31,6 +30,7 @@ export function HandoverStatusPanel({
     startTransition(async () => {
       try {
         await setHandoverStatusAction(handoverId, next);
+        revalidate();
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Could not change the status.');
       }

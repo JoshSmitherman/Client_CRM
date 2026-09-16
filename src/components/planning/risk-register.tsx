@@ -1,7 +1,5 @@
-'use client';
-
 import { Plus, ShieldAlert, Trash2 } from 'lucide-react';
-import { useActionState, useState, useTransition } from 'react';
+import { useState, useTransition } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,8 +8,9 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Field, Input, Select, Textarea } from '@/components/ui/field';
 import { FormMessage, SubmitButton } from '@/components/ui/form-status';
 import { addRiskAction, deleteRiskAction, setRiskStatusAction } from '@/lib/actions/planning';
-import { idleState } from '@/lib/actions/types';
 import type { Tone } from '@/lib/constants';
+import { revalidate } from '@/lib/data/revalidate';
+import { useFormAction } from '@/lib/data/use-form-action';
 import { cn } from '@/lib/utils';
 
 export interface RiskRow {
@@ -57,7 +56,7 @@ export function RiskRegister({
   staff: { id: string; full_name: string }[];
 }) {
   const action = addRiskAction.bind(null, projectId);
-  const [state, formAction] = useActionState(action, idleState);
+  const [state, formAction] = useFormAction(action);
   const [adding, setAdding] = useState(false);
 
   const open = risks.filter((r) => r.status === 'open').length;
@@ -171,6 +170,7 @@ function RiskItem({ risk }: { risk: RiskRow }) {
             onChange={(e) =>
               startTransition(async () => {
                 await setRiskStatusAction(risk.id, e.target.value);
+                revalidate();
               })
             }
             className="h-8 rounded-lg border border-[var(--border-strong)] bg-[var(--surface-card)] px-2 text-[12px]"
@@ -182,7 +182,7 @@ function RiskItem({ risk }: { risk: RiskRow }) {
             ))}
           </select>
 
-          <form action={async () => { await deleteRiskAction(risk.id); }}>
+          <form action={async () => { await deleteRiskAction(risk.id); revalidate(); }}>
             <Button variant="ghost" size="icon" type="submit" aria-label={`Delete ${risk.title}`}>
               <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
             </Button>

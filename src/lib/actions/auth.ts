@@ -1,11 +1,5 @@
-'use server';
-
-import { redirect } from 'next/navigation';
-import { revalidatePath } from 'next/cache';
-
-import { createClient } from '@/lib/supabase/server';
-import { siteUrl } from '@/lib/supabase/env';
-import { homePathForRole } from '@/lib/auth';
+import { homePathForRole } from '@/lib/session';
+import { supabase, siteUrl } from '@/lib/supabase/client';
 import { formObject } from '@/lib/validation/common';
 import {
   acceptInviteSchema,
@@ -26,7 +20,6 @@ export async function signInAction(
     return errorState('Check the details below.', zodErrors(parsed.error));
   }
 
-  const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
 
   if (error) {
@@ -50,19 +43,16 @@ export async function signInAction(
   if (!profile || !profile.is_active) {
     await supabase.auth.signOut();
     return errorState(
-      'Your account is not active yet. Ask your account manager to send you an invitation.',
+      'Your account is not active yet. It may be waiting for an administrator to approve it, ' +
+        'or you may need an invitation.',
     );
   }
 
-  revalidatePath('/', 'layout');
-  redirect(homePathForRole(profile.role));
+  return successState(undefined, homePathForRole(profile.role));
 }
 
 export async function signOutAction(): Promise<void> {
-  const supabase = await createClient();
   await supabase.auth.signOut();
-  revalidatePath('/', 'layout');
-  redirect('/login');
 }
 
 export async function requestPasswordResetAction(
@@ -74,9 +64,8 @@ export async function requestPasswordResetAction(
     return errorState('Check the details below.', zodErrors(parsed.error));
   }
 
-  const supabase = await createClient();
   await supabase.auth.resetPasswordForEmail(parsed.data.email, {
-    redirectTo: `${siteUrl()}/auth/callback?next=/update-password`,
+    redirectTo: `${siteUrl()}/update-password`,
   });
 
   // Always report success, for the same enumeration reason as sign-in.
@@ -94,8 +83,6 @@ export async function updatePasswordAction(
     return errorState('Check the details below.', zodErrors(parsed.error));
   }
 
-  const supabase = await createClient();
-
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -110,14 +97,73 @@ export async function updatePasswordAction(
     .eq('id', user.id)
     .maybeSingle();
 
-  revalidatePath('/', 'layout');
-  redirect(profile ? homePathForRole(profile.role) : '/login');
+  return successState('Password updated.', profile ? homePathForRole(profile.role) : '/login');
 }
 
 /**
- * Completes an invitation: sets the person's name and password and activates
- * the profile that handle_new_user() created from the pending invitation.
+ * Staff self-registration.
+ *
+ * What the new account can do is decided by handle_new_user() in the database,
+ * not here: an invitation wins, then the first-ever account becomes the
+ * administrator, then an allow-listed email domain becomes staff, and anything
+ * else gets a profile with no organisation that can read nothing.
+ *
+ * Keeping that in the trigger means the rules hold however an account is
+ * created — including directly through the Supabase dashboard.
  */
+export async function signUpAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const parsed = signUpSchema.safeParse(formObject(formData));
+  if (!parsed.success) {
+    return errorState('Check the details below.', zodErrors(parsed.error));
+  }
+
+  const { data, error } = await supabase.auth.signUp({
+    email: parsed.data.email,
+    password: parsed.data.password,
+    options: {
+      data: { full_name: parsed.data.fullName },
+      emailRedirectTo: `${siteUrl()}/`,
+    },
+  });
+
+  if (error) return errorState(error.message);
+
+  // Supabase returns a user with no identities when the address is already
+  // registered, rather than saying so — which is right, since telling a
+  // stranger would confirm the address exists.
+  if (data.user && data.user.identities && data.user.identities.length === 0) {
+    return successState(
+      'Check your email. If that address can be registered, a confirmation link is on its way.',
+    );
+  }
+
+  if (!data.session) {
+    return successState(
+      'Almost there — check your email and click the confirmation link to activate your account.',
+    );
+  }
+
+  const { data: profile } = await supabase
+    .from('users')
+    .select('role, is_active')
+    .eq('id', data.user?.id ?? '')
+    .maybeSingle();
+
+  if (!profile?.is_active) {
+    await supabase.auth.signOut();
+    return successState(
+      'Your account has been created and is waiting for an administrator to approve it. ' +
+        'You will be able to sign in once they do.',
+    );
+  }
+
+  return successState(undefined, homePathForRole(profile.role));
+}
+
+/** Completes an invitation: sets the person's name and password. */
 export async function acceptInvitationAction(
   _prev: ActionState,
   formData: FormData,
@@ -126,8 +172,6 @@ export async function acceptInvitationAction(
   if (!parsed.success) {
     return errorState('Check the details below.', zodErrors(parsed.error));
   }
-
-  const supabase = await createClient();
 
   const {
     data: { user },
@@ -140,7 +184,7 @@ export async function acceptInvitationAction(
   });
   if (passwordError) return errorState(passwordError.message);
 
-  // is_active is guarded against self-service changes, so only set the name
+  // is_active is guarded against self-service changes, so only the name is set
   // here; the invitation trigger has already activated an invited profile.
   const { error: profileError } = await supabase
     .from('users')
@@ -169,77 +213,5 @@ export async function acceptInvitationAction(
     );
   }
 
-  revalidatePath('/', 'layout');
-  redirect(homePathForRole(profile.role));
-}
-
-/**
- * Staff self-registration through Supabase Authentication.
- *
- * What the new account can actually do is decided entirely by
- * handle_new_user() in the database, not here: an invitation wins, then the
- * first-ever account becomes the administrator, then an allow-listed email
- * domain becomes staff (active or pending approval), and anything else gets a
- * profile with no organisation that can read nothing.
- *
- * Doing it in the trigger rather than in this action means the same rules apply
- * however the account is created — including directly through the Supabase
- * dashboard.
- */
-export async function signUpAction(
-  _prev: ActionState,
-  formData: FormData,
-): Promise<ActionState> {
-  const parsed = signUpSchema.safeParse(formObject(formData));
-  if (!parsed.success) {
-    return errorState('Check the details below.', zodErrors(parsed.error));
-  }
-
-  const supabase = await createClient();
-
-  const { data, error } = await supabase.auth.signUp({
-    email: parsed.data.email,
-    password: parsed.data.password,
-    options: {
-      data: { full_name: parsed.data.fullName },
-      emailRedirectTo: `${siteUrl()}/auth/callback?next=/`,
-    },
-  });
-
-  if (error) {
-    return errorState(error.message);
-  }
-
-  // Supabase returns a user with no identities when the address is already
-  // registered, rather than saying so — which is the right call, since telling
-  // a stranger would confirm the address exists.
-  if (data.user && data.user.identities && data.user.identities.length === 0) {
-    return successState(
-      'Check your email. If that address can be registered, a confirmation link is on its way.',
-    );
-  }
-
-  // Email confirmation is on: there is no session yet.
-  if (!data.session) {
-    return successState(
-      'Almost there — check your email and click the confirmation link to activate your account.',
-    );
-  }
-
-  const { data: profile } = await supabase
-    .from('users')
-    .select('role, is_active')
-    .eq('id', data.user?.id ?? '')
-    .maybeSingle();
-
-  if (!profile?.is_active) {
-    await supabase.auth.signOut();
-    return successState(
-      'Your account has been created and is waiting for an administrator to approve it. ' +
-        'You will be able to sign in once they do.',
-    );
-  }
-
-  revalidatePath('/', 'layout');
-  redirect(homePathForRole(profile.role));
+  return successState(undefined, homePathForRole(profile.role));
 }

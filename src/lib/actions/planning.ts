@@ -1,11 +1,8 @@
-'use server';
-
-import { revalidatePath } from 'next/cache';
 
 import { recordActivity } from '@/lib/activity';
-import { requireAgency } from '@/lib/auth';
 import { setInternalNote } from '@/lib/internal-notes';
-import { createClient } from '@/lib/supabase/server';
+import { requireAgencyUser } from '@/lib/session';
+import { supabase } from '@/lib/supabase/client';
 import { formObject } from '@/lib/validation/common';
 import {
   deliverableSchema,
@@ -20,7 +17,7 @@ export async function savePlanAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const session = await requireAgency();
+  const session = await requireAgencyUser();
 
   const parsed = planSchema.safeParse(formObject(formData));
   if (!parsed.success) {
@@ -28,7 +25,6 @@ export async function savePlanAction(
   }
 
   const input = parsed.data;
-  const supabase = await createClient();
 
   // Projects created before the plan row existed, or created outside the app,
   // still need one — upsert rather than assume.
@@ -61,8 +57,6 @@ export async function savePlanAction(
       userId: session.userId,
     });
   }
-
-  revalidatePath(`/projects/${projectId}/planning`);
   return successState('Plan saved.');
 }
 
@@ -71,7 +65,7 @@ export async function addMilestoneAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const session = await requireAgency();
+  const session = await requireAgencyUser();
 
   const parsed = milestoneSchema.safeParse(formObject(formData));
   if (!parsed.success) {
@@ -79,7 +73,6 @@ export async function addMilestoneAction(
   }
 
   const input = parsed.data;
-  const supabase = await createClient();
 
   const { count } = await supabase
     .from('project_milestones')
@@ -98,8 +91,6 @@ export async function addMilestoneAction(
   });
 
   if (error) return errorState(`Could not add the milestone: ${error.message}`);
-
-  revalidatePath(`/projects/${projectId}`, 'layout');
   return successState('Milestone added.');
 }
 
@@ -111,8 +102,7 @@ export async function toggleMilestoneAction(
   milestoneId: string,
   complete: boolean,
 ): Promise<void> {
-  const session = await requireAgency();
-  const supabase = await createClient();
+  const session = await requireAgencyUser();
 
   const { data: milestone } = await supabase
     .from('project_milestones')
@@ -144,23 +134,12 @@ export async function toggleMilestoneAction(
       actorName: session.profile.full_name,
     });
   }
-
-  revalidatePath(`/projects/${milestone.project_id}`, 'layout');
 }
 
 export async function deleteMilestoneAction(milestoneId: string): Promise<void> {
-  await requireAgency();
-  const supabase = await createClient();
-
-  const { data: milestone } = await supabase
-    .from('project_milestones')
-    .select('project_id')
-    .eq('id', milestoneId)
-    .maybeSingle();
+  await requireAgencyUser();
 
   await supabase.from('project_milestones').delete().eq('id', milestoneId);
-
-  if (milestone) revalidatePath(`/projects/${milestone.project_id}`, 'layout');
 }
 
 export async function addDeliverableAction(
@@ -168,7 +147,7 @@ export async function addDeliverableAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const session = await requireAgency();
+  const session = await requireAgencyUser();
 
   const parsed = deliverableSchema.safeParse(formObject(formData));
   if (!parsed.success) {
@@ -176,7 +155,6 @@ export async function addDeliverableAction(
   }
 
   const input = parsed.data;
-  const supabase = await createClient();
 
   const { count } = await supabase
     .from('project_deliverables')
@@ -194,8 +172,6 @@ export async function addDeliverableAction(
   });
 
   if (error) return errorState(`Could not add the deliverable: ${error.message}`);
-
-  revalidatePath(`/projects/${projectId}/planning`);
   return successState('Deliverable added.');
 }
 
@@ -203,14 +179,7 @@ export async function toggleDeliverableAction(
   deliverableId: string,
   complete: boolean,
 ): Promise<void> {
-  await requireAgency();
-  const supabase = await createClient();
-
-  const { data: row } = await supabase
-    .from('project_deliverables')
-    .select('project_id')
-    .eq('id', deliverableId)
-    .maybeSingle();
+  await requireAgencyUser();
 
   await supabase
     .from('project_deliverables')
@@ -219,23 +188,12 @@ export async function toggleDeliverableAction(
       completed_at: complete ? new Date().toISOString() : null,
     })
     .eq('id', deliverableId);
-
-  if (row) revalidatePath(`/projects/${row.project_id}/planning`);
 }
 
 export async function deleteDeliverableAction(deliverableId: string): Promise<void> {
-  await requireAgency();
-  const supabase = await createClient();
-
-  const { data: row } = await supabase
-    .from('project_deliverables')
-    .select('project_id')
-    .eq('id', deliverableId)
-    .maybeSingle();
+  await requireAgencyUser();
 
   await supabase.from('project_deliverables').delete().eq('id', deliverableId);
-
-  if (row) revalidatePath(`/projects/${row.project_id}/planning`);
 }
 
 export async function addRiskAction(
@@ -243,7 +201,7 @@ export async function addRiskAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const session = await requireAgency();
+  const session = await requireAgencyUser();
 
   const parsed = riskSchema.safeParse(formObject(formData));
   if (!parsed.success) {
@@ -251,7 +209,6 @@ export async function addRiskAction(
   }
 
   const input = parsed.data;
-  const supabase = await createClient();
 
   const { error } = await supabase.from('project_risks').insert({
     project_id: projectId,
@@ -265,37 +222,17 @@ export async function addRiskAction(
   });
 
   if (error) return errorState(`Could not add the risk: ${error.message}`);
-
-  revalidatePath(`/projects/${projectId}/planning`);
   return successState('Risk recorded.');
 }
 
 export async function setRiskStatusAction(riskId: string, status: string): Promise<void> {
-  await requireAgency();
-  const supabase = await createClient();
-
-  const { data: row } = await supabase
-    .from('project_risks')
-    .select('project_id')
-    .eq('id', riskId)
-    .maybeSingle();
+  await requireAgencyUser();
 
   await supabase.from('project_risks').update({ status }).eq('id', riskId);
-
-  if (row) revalidatePath(`/projects/${row.project_id}/planning`);
 }
 
 export async function deleteRiskAction(riskId: string): Promise<void> {
-  await requireAgency();
-  const supabase = await createClient();
-
-  const { data: row } = await supabase
-    .from('project_risks')
-    .select('project_id')
-    .eq('id', riskId)
-    .maybeSingle();
+  await requireAgencyUser();
 
   await supabase.from('project_risks').delete().eq('id', riskId);
-
-  if (row) revalidatePath(`/projects/${row.project_id}/planning`);
 }

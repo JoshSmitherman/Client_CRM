@@ -1,5 +1,3 @@
-'use client';
-
 import { useState, useTransition } from 'react';
 
 import { Avatar } from '@/components/ui/avatar';

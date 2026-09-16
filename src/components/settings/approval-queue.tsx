@@ -1,5 +1,3 @@
-'use client';
-
 import { UserCheck, UserX } from 'lucide-react';
 import { useState, useTransition } from 'react';
 
@@ -7,6 +5,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader } from '@/components/ui/card';
 import { setUserActiveAction } from '@/lib/actions/team';
+import { revalidate } from '@/lib/data/revalidate';
 import { formatRelative } from '@/lib/format';
 import { ROLE_LABELS, type AppRole } from '@/lib/permissions';
 import { cn } from '@/lib/utils';
@@ -51,6 +50,7 @@ function PendingRow({ person }: { person: PendingStaff }) {
     startTransition(async () => {
       try {
         await setUserActiveAction(person.id, activate);
+        revalidate();
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Could not update the account.');
       }

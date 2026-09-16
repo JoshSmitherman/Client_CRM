@@ -1,10 +1,7 @@
-import 'server-only';
-
-import { createClient } from '@/lib/supabase/server';
 import { OPEN_CHANGE_STATUSES, OPEN_SUPPORT_STATUSES } from '@/lib/constants';
+import { supabase } from '@/lib/supabase/client';
 
 export async function getProject(projectId: string) {
-  const supabase = await createClient();
 
   const { data, error } = await supabase
     .from('projects')
@@ -25,7 +22,6 @@ export type ProjectDetail = NonNullable<Awaited<ReturnType<typeof getProject>>>;
 
 /** Counts driving the tab badges in the project workspace. */
 export async function getProjectTabCounts(projectId: string) {
-  const supabase = await createClient();
 
   const [tasks, changes, support, files, comments, pendingOnboarding] = await Promise.all([
     supabase
@@ -75,7 +71,6 @@ export async function getProjectTabCounts(projectId: string) {
 
 /** The per-component progress breakdown, computed in the database. */
 export async function getProjectProgress(projectId: string) {
-  const supabase = await createClient();
 
   const { data, error } = await supabase.rpc('calculate_project_progress', {
     p_project_id: projectId,
@@ -90,7 +85,6 @@ export async function getProjectProgress(projectId: string) {
 }
 
 export async function getProjectMembers(projectId: string) {
-  const supabase = await createClient();
 
   const { data } = await supabase
     .from('project_members')
@@ -102,7 +96,6 @@ export async function getProjectMembers(projectId: string) {
 
 /** Everything the Overview tab renders. */
 export async function getProjectOverview(projectId: string) {
-  const supabase = await createClient();
   const today = new Date().toISOString().slice(0, 10);
 
   const [
@@ -209,7 +202,6 @@ export async function getProjectOverview(projectId: string) {
 }
 
 export async function getLifecycleStages() {
-  const supabase = await createClient();
 
   const { data } = await supabase
     .from('lifecycle_stages')
@@ -221,7 +213,6 @@ export async function getLifecycleStages() {
 }
 
 export async function getAgencyStaff() {
-  const supabase = await createClient();
 
   const { data } = await supabase
     .from('users')

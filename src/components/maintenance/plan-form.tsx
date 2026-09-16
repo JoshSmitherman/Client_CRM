@@ -1,6 +1,4 @@
-'use client';
-
-import { useActionState, useState } from 'react';
+import { useState } from 'react';
 import { Plus, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -8,8 +6,8 @@ import { Card, CardBody, CardFooter, CardHeader } from '@/components/ui/card';
 import { Checkbox, Field, Input, Select, Textarea } from '@/components/ui/field';
 import { FormMessage, SubmitButton } from '@/components/ui/form-status';
 import { savePlanAction } from '@/lib/actions/maintenance';
-import { idleState } from '@/lib/actions/types';
 import { BILLING_FREQUENCY_LABELS, toOptions } from '@/lib/constants';
+import { useFormAction } from '@/lib/data/use-form-action';
 import type { Tables } from '@/lib/supabase/database.types';
 
 /**
@@ -19,7 +17,7 @@ import type { Tables } from '@/lib/supabase/database.types';
  */
 export function PlanForm({ plan, onDone }: { plan?: Tables<'maintenance_plans'>; onDone?: () => void }) {
   const action = savePlanAction.bind(null, plan?.id ?? null);
-  const [state, formAction] = useActionState(action, idleState);
+  const [state, formAction] = useFormAction(action);
   const e = state.errors ?? {};
 
   if (state.status === 'success' && onDone) onDone();

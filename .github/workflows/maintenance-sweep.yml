@@ -1,0 +1,49 @@
+name: Maintenance sweep
+
+# Keeps subscription and reminder state honest without anyone having to open
+# the application:
+#   - active subscriptions inside the 30-day window become "renewal due"
+#   - lapsed subscriptions that do not auto-renew are expired
+#   - reminders that have reached their notification offset are surfaced
+#
+# public.sweep_maintenance_state() does all of it in one statement and is
+# idempotent, so running it more often than necessary is harmless. The Maintenance
+# screen runs the same function whenever an agency user opens it; this is the
+# belt to that braces, for the days nobody does.
+#
+# Needs one secret, the same one the schema workflow uses:
+#   SUPABASE_DB_URL   Supabase -> Project Settings -> Database
+#                     -> Connection string -> URI
+#
+# See docs/GITHUB-SETUP.md.
+
+on:
+  schedule:
+    # 07:00 UTC daily — before the working day in the UK, in either direction
+    # from the clock change.
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+
+jobs:
+  sweep:
+    name: Run the sweep
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the secret is present
+        run: |
+          if [ -z "${{ secrets.SUPABASE_DB_URL }}" ]; then
+            echo "::error::SUPABASE_DB_URL is not set."
+            echo "Add it under Settings -> Secrets and variables -> Actions."
+            echo "See docs/GITHUB-SETUP.md."
+            exit 1
+          fi
+
+      - name: Install the Postgres client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Sweep
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          psql "$DB_URL" -v ON_ERROR_STOP=1 -At \
+            -c "select public.sweep_maintenance_state()"

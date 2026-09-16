@@ -1,26 +1,21 @@
-'use client';
-
-import { useActionState } from 'react';
 
 import { Alert } from '@/components/ui/alert';
 import { Card, CardBody, CardFooter, CardHeader } from '@/components/ui/card';
 import { Field, Input, Textarea } from '@/components/ui/field';
 import { FormMessage, SubmitButton } from '@/components/ui/form-status';
 import { saveHandoverAction } from '@/lib/actions/handover';
-import { idleState } from '@/lib/actions/types';
+import { useFormAction } from '@/lib/data/use-form-action';
 import type { Tables } from '@/lib/supabase/database.types';
 
 export function HandoverForm({
   handover,
-  projectId,
   credentialGuidance,
 }: {
   handover: Tables<'handovers'>;
-  projectId: string;
   credentialGuidance: string;
 }) {
-  const action = saveHandoverAction.bind(null, handover.id, projectId);
-  const [state, formAction] = useActionState(action, idleState);
+  const action = saveHandoverAction.bind(null, handover.id);
+  const [state, formAction] = useFormAction(action);
   const e = state.errors ?? {};
 
   return (

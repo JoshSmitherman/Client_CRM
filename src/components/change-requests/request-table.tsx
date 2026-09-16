@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { Link } from 'react-router-dom';
 import { FileText } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -66,7 +66,7 @@ export function RequestTable({
             <Tr key={request.id}>
               <Td>
                 <Link
-                  href={`${basePath}/${request.id}`}
+                  to={`${basePath}/${request.id}`}
                   className="font-medium hover:text-[var(--accent-text)] hover:underline"
                 >
                   {request.title}
@@ -82,7 +82,7 @@ export function RequestTable({
                 <Td className="text-[13px]">
                   {request.clients ? (
                     <Link
-                      href={`/clients/${request.clients.id}`}
+                      to={`/clients/${request.clients.id}`}
                       className="hover:text-[var(--accent-text)] hover:underline"
                     >
                       {request.clients.company_name}

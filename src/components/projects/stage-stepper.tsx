@@ -1,9 +1,8 @@
-'use client';
-
 import { Check, ChevronDown } from 'lucide-react';
 import { useState, useTransition } from 'react';
 
 import { setProjectStageAction } from '@/lib/actions/projects';
+import { revalidate } from '@/lib/data/revalidate';
 import { cn } from '@/lib/utils';
 
 export interface Stage {
@@ -40,6 +39,7 @@ export function StageStepper({
     startTransition(async () => {
       try {
         await setProjectStageAction(projectId, stageId);
+        revalidate();
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Could not change the stage.');
       }

@@ -1,8 +1,6 @@
-import 'server-only';
-
-import { getCurrentClientId } from '@/lib/auth';
 import { OPEN_CHANGE_STATUSES, OPEN_SUPPORT_STATUSES } from '@/lib/constants';
-import { createClient } from '@/lib/supabase/server';
+import { currentClientId } from '@/lib/session';
+import { supabase } from '@/lib/supabase/client';
 
 /**
  * Everything the portal home page shows.
@@ -12,8 +10,7 @@ import { createClient } from '@/lib/supabase/server';
  * nothing rather than someone else's data.
  */
 export async function getPortalHome() {
-  const clientId = await getCurrentClientId();
-  const supabase = await createClient();
+  const clientId = await currentClientId();
   const today = new Date().toISOString().slice(0, 10);
 
   const [
@@ -122,7 +119,6 @@ export async function getPortalHome() {
 
 /** Upcoming milestones and deadlines across the client's projects. */
 export async function getPortalDeadlines(limit = 6) {
-  const supabase = await createClient();
   const today = new Date().toISOString().slice(0, 10);
 
   const { data } = await supabase

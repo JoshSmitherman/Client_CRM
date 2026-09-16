@@ -1,12 +1,9 @@
-'use client';
-
-import { useActionState } from 'react';
 
 import { Card, CardBody, CardFooter, CardHeader } from '@/components/ui/card';
 import { Field, Input, Select } from '@/components/ui/field';
 import { FormMessage, SubmitButton } from '@/components/ui/form-status';
 import { recordUsageAction } from '@/lib/actions/maintenance';
-import { idleState } from '@/lib/actions/types';
+import { useFormAction } from '@/lib/data/use-form-action';
 
 /**
  * Manual adjustment. Negative minutes correct an over-recording, which is why
@@ -15,7 +12,7 @@ import { idleState } from '@/lib/actions/types';
  */
 export function RecordUsageForm({ subscriptionId }: { subscriptionId: string }) {
   const action = recordUsageAction.bind(null, subscriptionId);
-  const [state, formAction] = useActionState(action, idleState);
+  const [state, formAction] = useFormAction(action);
   const e = state.errors ?? {};
 
   return (

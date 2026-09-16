@@ -1,8 +1,5 @@
-'use client';
-
 import {
   Check,
-  Download,
   FileSpreadsheet,
   FileText,
   FolderOpen,
@@ -13,11 +10,13 @@ import {
 } from 'lucide-react';
 import { useState, useTransition } from 'react';
 
+import { DownloadButton } from '@/components/files/download-button';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { deleteFileAction, setFileApprovalAction } from '@/lib/actions/files';
 import { FILE_APPROVAL_LABELS, FILE_APPROVAL_TONES, FILE_CATEGORY_LABELS } from '@/lib/constants';
+import { revalidate } from '@/lib/data/revalidate';
 import { formatDate, formatFileSize } from '@/lib/format';
 import type { Enums } from '@/lib/supabase/database.types';
 
@@ -100,6 +99,7 @@ function FileItem({
     startTransition(async () => {
       try {
         await setFileApprovalAction(file.id, status, reason);
+        revalidate();
         setRejecting(false);
         setNotes('');
       } catch (e) {
@@ -146,15 +146,11 @@ function FileItem({
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
-          <Button variant="ghost" size="icon" asChild>
-            {/* Downloads route through the API so object keys are never public. */}
-            <a href={`/api/files/${file.id}`} aria-label={`Download ${file.file_name}`}>
-              <Download className="h-4 w-4" aria-hidden="true" />
-            </a>
-          </Button>
+          {/* Object keys are never rendered; the URL is minted on click. */}
+          <DownloadButton fileId={file.id} label={file.file_name} />
 
           {canDelete ? (
-            <form action={async () => { await deleteFileAction(file.id); }}>
+            <form action={async () => { await deleteFileAction(file.id); revalidate(); }}>
               <Button
                 variant="ghost"
                 size="icon"

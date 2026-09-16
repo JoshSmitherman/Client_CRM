@@ -1,16 +1,12 @@
-'use server';
-
-import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
 
 import { recordActivity } from '@/lib/activity';
 import { AuditAction, recordAudit } from '@/lib/audit';
-import { getCurrentClientId, requireUser } from '@/lib/auth';
 import { SUPPORT_STATUS_LABELS } from '@/lib/constants';
-import { clientNotificationTargets, notify, projectNotificationTargets } from '@/lib/notifications';
 import { setInternalNote } from '@/lib/internal-notes';
+import { clientNotificationTargets, notify, projectNotificationTargets } from '@/lib/notifications';
 import { isAgency } from '@/lib/permissions';
-import { createClient } from '@/lib/supabase/server';
+import { currentClientId, currentUser } from '@/lib/session';
+import { supabase } from '@/lib/supabase/client';
 import { formObject } from '@/lib/validation/common';
 import { supportRequestSchema, supportTriageSchema } from '@/lib/validation/support';
 import { errorState, successState, zodErrors, type ActionState } from './types';
@@ -19,7 +15,7 @@ export async function createSupportRequestAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const session = await requireUser();
+  const session = await currentUser();
 
   const parsed = supportRequestSchema.safeParse(formObject(formData));
   if (!parsed.success) {
@@ -31,10 +27,8 @@ export async function createSupportRequestAction(
 
   // A client's ticket always belongs to their own organisation, whatever the
   // form says; the INSERT policy refuses anything else in any case.
-  const clientId = agency ? input.clientId : await getCurrentClientId();
+  const clientId = agency ? input.clientId : await currentClientId();
   if (!clientId) return errorState('Could not determine which client this ticket belongs to.');
-
-  const supabase = await createClient();
 
   const { data: subscription } = await supabase
     .from('maintenance_subscriptions')
@@ -111,9 +105,7 @@ export async function createSupportRequestAction(
       url: `/support/${request.id}`,
     }),
   ]);
-
-  revalidatePath('/', 'layout');
-  redirect(agency ? `/support/${request.id}` : `/portal/support/${request.id}`);
+  return successState(undefined, agency ? `/support/${request.id}` : `/portal/support/${request.id}`);
 }
 
 export async function triageSupportRequestAction(
@@ -121,7 +113,7 @@ export async function triageSupportRequestAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const session = await requireUser();
+  const session = await currentUser();
   if (!isAgency(session.profile.role)) {
     return errorState('Only agency users can triage support tickets.');
   }
@@ -132,7 +124,6 @@ export async function triageSupportRequestAction(
   }
 
   const input = parsed.data;
-  const supabase = await createClient();
 
   const { data: before } = await supabase
     .from('support_requests')
@@ -229,15 +220,12 @@ export async function triageSupportRequestAction(
       }),
     ]);
   }
-
-  revalidatePath('/', 'layout');
   return successState('Ticket updated.');
 }
 
 /** A client closing their own resolved ticket. */
 export async function closeSupportRequestAction(requestId: string): Promise<void> {
-  const session = await requireUser();
-  const supabase = await createClient();
+  const session = await currentUser();
 
   const { data: request } = await supabase
     .from('support_requests')
@@ -264,12 +252,9 @@ export async function closeSupportRequestAction(requestId: string): Promise<void
     visibility: 'client',
     actorName: session.profile.full_name,
   });
-
-  revalidatePath('/', 'layout');
 }
 
 async function agencyAdminIds(): Promise<string[]> {
-  const supabase = await createClient();
   const { data } = await supabase
     .from('users')
     .select('id')

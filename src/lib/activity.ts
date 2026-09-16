@@ -1,6 +1,4 @@
-import 'server-only';
-
-import { createClient } from '@/lib/supabase/server';
+import { supabase } from '@/lib/supabase/client';
 import type { Enums, Json } from '@/lib/supabase/database.types';
 
 /**
@@ -22,7 +20,6 @@ export async function recordActivity(params: {
   actorName?: string | null;
 }): Promise<void> {
   try {
-    const supabase = await createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();

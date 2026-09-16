@@ -1,14 +1,11 @@
-'use server';
-
-import { revalidatePath } from 'next/cache';
 
 import { recordActivity } from '@/lib/activity';
 import { AuditAction, recordAudit } from '@/lib/audit';
-import { requireUser } from '@/lib/auth';
 import { categoryForMime, safeFileName, storageKey, validateFile } from '@/lib/files';
 import { clientNotificationTargets, notify, projectNotificationTargets } from '@/lib/notifications';
 import { isAgency } from '@/lib/permissions';
-import { createClient } from '@/lib/supabase/server';
+import { currentUser } from '@/lib/session';
+import { supabase } from '@/lib/supabase/client';
 import type { Enums } from '@/lib/supabase/database.types';
 import { errorState, successState, type ActionState } from './types';
 
@@ -24,7 +21,7 @@ export async function uploadFilesAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const session = await requireUser();
+  const session = await currentUser();
 
   const projectId = String(formData.get('projectId') ?? '') || null;
   const clientId = String(formData.get('clientId') ?? '') || null;
@@ -37,8 +34,6 @@ export async function uploadFilesAction(
 
   const files = formData.getAll('files').filter((f): f is File => f instanceof File && f.size > 0);
   if (files.length === 0) return errorState('Choose at least one file to upload.');
-
-  const supabase = await createClient();
   const uploaded: string[] = [];
   const failures: string[] = [];
 
@@ -132,8 +127,6 @@ export async function uploadFilesAction(
     });
   }
 
-  revalidatePath('/', 'layout');
-
   if (failures.length > 0 && uploaded.length === 0) {
     return errorState(failures.join(' '));
   }
@@ -152,7 +145,7 @@ export async function setFileApprovalAction(
   status: Enums<'file_approval_status'>,
   notes?: string,
 ): Promise<void> {
-  const session = await requireUser();
+  const session = await currentUser();
   if (!isAgency(session.profile.role)) {
     throw new Error('Only agency users can approve files.');
   }
@@ -160,8 +153,6 @@ export async function setFileApprovalAction(
   if (status !== 'approved' && !notes?.trim()) {
     throw new Error('Explain what needs to change when rejecting a file.');
   }
-
-  const supabase = await createClient();
 
   const { data: before } = await supabase
     .from('files')
@@ -214,14 +205,11 @@ export async function setFileApprovalAction(
       actorName: session.profile.full_name,
     }),
   ]);
-
-  revalidatePath('/', 'layout');
 }
 
 /** Soft-deletes the row and removes the object. */
 export async function deleteFileAction(fileId: string): Promise<void> {
-  const session = await requireUser();
-  const supabase = await createClient();
+  const session = await currentUser();
 
   const { data: file } = await supabase
     .from('files')
@@ -262,6 +250,4 @@ export async function deleteFileAction(fileId: string): Promise<void> {
       actorName: session.profile.full_name,
     }),
   ]);
-
-  revalidatePath('/', 'layout');
 }

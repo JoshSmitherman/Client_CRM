@@ -1,16 +1,13 @@
-'use server';
-
-import { revalidatePath } from 'next/cache';
 
 import { recordActivity } from '@/lib/activity';
 import { AuditAction, recordAudit } from '@/lib/audit';
-import { requireUser } from '@/lib/auth';
 import { clientNotificationTargets, notify, projectNotificationTargets } from '@/lib/notifications';
 import { isAgency } from '@/lib/permissions';
-import { createClient } from '@/lib/supabase/server';
+import { currentUser } from '@/lib/session';
+import { supabase } from '@/lib/supabase/client';
 import type { Enums, Json } from '@/lib/supabase/database.types';
 import { formObject } from '@/lib/validation/common';
-import { missingRequiredFields, sectionSchema } from '@/lib/validation/onboarding';
+import { sectionSchema } from '@/lib/validation/onboarding';
 import { errorState, successState, zodErrors, type ActionState } from './types';
 
 /**
@@ -25,8 +22,7 @@ export async function saveOnboardingSectionAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const session = await requireUser();
-  const supabase = await createClient();
+  const session = await currentUser();
 
   const { data: section } = await supabase
     .from('onboarding_sections')
@@ -106,8 +102,6 @@ export async function saveOnboardingSectionAction(
     ]);
   }
 
-  revalidatePath('/', 'layout');
-
   return successState(
     submitting
       ? 'Submitted. We will review it and come back to you.'
@@ -121,7 +115,7 @@ export async function reviewOnboardingSectionAction(
   decision: 'approved' | 'needs_changes' | 'not_required',
   feedback?: string,
 ): Promise<void> {
-  const session = await requireUser();
+  const session = await currentUser();
   if (!isAgency(session.profile.role)) {
     throw new Error('Only agency users can review onboarding sections.');
   }
@@ -129,8 +123,6 @@ export async function reviewOnboardingSectionAction(
   if (decision === 'needs_changes' && !feedback?.trim()) {
     throw new Error('Explain what the client needs to change.');
   }
-
-  const supabase = await createClient();
 
   const { data: section } = await supabase
     .from('onboarding_sections')
@@ -212,21 +204,15 @@ export async function reviewOnboardingSectionAction(
         })
       : Promise.resolve(),
   ]);
-
-  revalidatePath('/', 'layout');
 }
 
 /** Re-opens a section the client needs to revisit. */
 export async function reopenOnboardingSectionAction(sectionId: string): Promise<void> {
-  const session = await requireUser();
+  const session = await currentUser();
   if (!isAgency(session.profile.role)) throw new Error('Only agency users can reopen a section.');
-
-  const supabase = await createClient();
 
   await supabase
     .from('onboarding_sections')
     .update({ status: 'in_progress', reviewed_at: null, reviewed_by: null })
     .eq('id', sectionId);
-
-  revalidatePath('/', 'layout');
 }

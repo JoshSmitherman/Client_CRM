@@ -1,16 +1,15 @@
-'use client';
-
 import { Flag, Plus, Trash2 } from 'lucide-react';
-import { useActionState, useRef, useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Card, CardHeader } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Field, Input, Select } from '@/components/ui/field';
 import { FormMessage, SubmitButton } from '@/components/ui/form-status';
 import { addMilestoneAction, deleteMilestoneAction, toggleMilestoneAction } from '@/lib/actions/planning';
-import { idleState } from '@/lib/actions/types';
 import { RESPONSIBILITY_LABELS, toOptions } from '@/lib/constants';
+import { revalidate } from '@/lib/data/revalidate';
+import { useFormAction } from '@/lib/data/use-form-action';
 import { formatDate, isOverdue } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
@@ -32,7 +31,7 @@ export function MilestoneList({
   milestones: MilestoneRow[];
 }) {
   const action = addMilestoneAction.bind(null, projectId);
-  const [state, formAction] = useActionState(action, idleState);
+  const [state, formAction] = useFormAction(action);
   const [adding, setAdding] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -152,6 +151,7 @@ function MilestoneItem({
         onChange={() =>
           startTransition(async () => {
             await toggleMilestoneAction(milestone.id, !complete);
+            revalidate();
           })
         }
         aria-label={complete ? `Reopen ${milestone.title}` : `Mark ${milestone.title} reached`}
@@ -178,7 +178,7 @@ function MilestoneItem({
         </p>
       </div>
 
-      <form action={async () => { await deleteMilestoneAction(milestone.id); }}>
+      <form action={async () => { await deleteMilestoneAction(milestone.id); revalidate(); }}>
         <Button variant="ghost" size="icon" type="submit" aria-label={`Delete ${milestone.title}`}>
           <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
         </Button>

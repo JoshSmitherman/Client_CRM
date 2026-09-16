@@ -1,6 +1,4 @@
-'use client';
-
-import { useActionState, useState } from 'react';
+import { useState } from 'react';
 
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -8,8 +6,8 @@ import { Card, CardBody, CardFooter, CardHeader } from '@/components/ui/card';
 import { Field, Select, Textarea } from '@/components/ui/field';
 import { FormMessage, SubmitButton } from '@/components/ui/form-status';
 import { requestPlanChangeAction } from '@/lib/actions/maintenance';
-import { idleState } from '@/lib/actions/types';
 import { PLAN_REQUEST_TYPE_LABELS, toOptions } from '@/lib/constants';
+import { useFormAction } from '@/lib/data/use-form-action';
 
 /**
  * A request, not a change. Nothing about the subscription moves until the
@@ -25,7 +23,7 @@ export function PlanRequestForm({
   plans: { id: string; name: string }[];
   currentPlanId: string | null;
 }) {
-  const [state, action] = useActionState(requestPlanChangeAction, idleState);
+  const [state, action] = useFormAction(requestPlanChangeAction);
   const [open, setOpen] = useState(false);
   const [type, setType] = useState('upgrade');
   const e = state.errors ?? {};

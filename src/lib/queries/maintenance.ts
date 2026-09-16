@@ -1,6 +1,4 @@
-import 'server-only';
-
-import { createClient } from '@/lib/supabase/server';
+import { supabase } from '@/lib/supabase/client';
 import { addDays } from './badges';
 
 export interface AllowanceSummary {
@@ -15,7 +13,6 @@ export interface AllowanceSummary {
 }
 
 export async function getPlans(includeInactive = true) {
-  const supabase = await createClient();
 
   let query = supabase.from('maintenance_plans').select('*').order('position');
   if (!includeInactive) query = query.eq('is_active', true);
@@ -26,7 +23,6 @@ export async function getPlans(includeInactive = true) {
 }
 
 export async function getSubscriptions(clientId?: string) {
-  const supabase = await createClient();
 
   let query = supabase
     .from('maintenance_subscriptions')
@@ -47,7 +43,6 @@ export async function getSubscriptions(clientId?: string) {
 }
 
 export async function getSubscription(subscriptionId: string) {
-  const supabase = await createClient();
 
   const { data } = await supabase
     .from('maintenance_subscriptions')
@@ -74,7 +69,6 @@ export async function getAllowance(
   included: { change: number; support: number },
   on?: string,
 ): Promise<AllowanceSummary> {
-  const supabase = await createClient();
 
   const { data } = await supabase.rpc('subscription_usage', {
     p_subscription_id: subscriptionId,
@@ -98,7 +92,6 @@ export async function getAllowance(
 }
 
 export async function getUsageHistory(subscriptionId: string, limit = 50) {
-  const supabase = await createClient();
 
   const { data } = await supabase
     .from('maintenance_usage')
@@ -115,7 +108,6 @@ export async function getUsageHistory(subscriptionId: string, limit = 50) {
 }
 
 export async function getSubscriptionEvents(subscriptionId: string) {
-  const supabase = await createClient();
 
   const { data } = await supabase
     .from('maintenance_events')
@@ -131,7 +123,6 @@ export async function getSubscriptionEvents(subscriptionId: string) {
 }
 
 export async function getReminders(withinDays = 90) {
-  const supabase = await createClient();
   const today = new Date().toISOString().slice(0, 10);
 
   const { data } = await supabase
@@ -148,7 +139,6 @@ export async function getReminders(withinDays = 90) {
 }
 
 export async function getPlanRequests(clientId?: string) {
-  const supabase = await createClient();
 
   let query = supabase
     .from('maintenance_plan_requests')
@@ -171,7 +161,6 @@ export async function getPlanRequests(clientId?: string) {
  * reminders that have reached their notification window. Idempotent.
  */
 export async function sweepMaintenanceState() {
-  const supabase = await createClient();
   const { data, error } = await supabase.rpc('sweep_maintenance_state');
   if (error) {
     console.error('[maintenance] sweep failed', error.message);

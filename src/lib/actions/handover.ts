@@ -1,14 +1,10 @@
-'use server';
-
-import { headers } from 'next/headers';
-import { revalidatePath } from 'next/cache';
 
 import { recordActivity } from '@/lib/activity';
 import { AuditAction, recordAudit } from '@/lib/audit';
-import { requireAgency, requireUser } from '@/lib/auth';
 import { clientNotificationTargets, notify, projectNotificationTargets } from '@/lib/notifications';
-import { canAcceptHandover, isAgency } from '@/lib/permissions';
-import { createClient } from '@/lib/supabase/server';
+import { canAcceptHandover } from '@/lib/permissions';
+import { currentUser, requireAgencyUser } from '@/lib/session';
+import { supabase } from '@/lib/supabase/client';
 import { formObject } from '@/lib/validation/common';
 import {
   acceptanceSchema,
@@ -17,6 +13,7 @@ import {
   handoverSchema,
 } from '@/lib/validation/handover';
 import type { Enums } from '@/lib/supabase/database.types';
+import { uploadFilesAction } from './files';
 import { errorState, successState, zodErrors, type ActionState } from './types';
 
 /**
@@ -25,8 +22,7 @@ import { errorState, successState, zodErrors, type ActionState } from './types';
  * an empty list someone has to remember to fill in.
  */
 export async function createHandoverAction(projectId: string): Promise<void> {
-  const session = await requireAgency();
-  const supabase = await createClient();
+  const session = await requireAgencyUser();
 
   const { data: existing } = await supabase
     .from('handovers')
@@ -72,17 +68,14 @@ export async function createHandoverAction(projectId: string): Promise<void> {
       })),
     );
   }
-
-  revalidatePath(`/projects/${projectId}/handover`);
 }
 
 export async function saveHandoverAction(
   handoverId: string,
-  projectId: string,
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  await requireAgency();
+  await requireAgencyUser();
 
   const parsed = handoverSchema.safeParse(formObject(formData));
   if (!parsed.success) {
@@ -90,7 +83,6 @@ export async function saveHandoverAction(
   }
 
   const input = parsed.data;
-  const supabase = await createClient();
 
   const { error } = await supabase
     .from('handovers')
@@ -117,8 +109,6 @@ export async function saveHandoverAction(
     .eq('id', handoverId);
 
   if (error) return errorState(`Could not save the handover: ${error.message}`);
-
-  revalidatePath(`/projects/${projectId}/handover`);
   return successState('Handover details saved.');
 }
 
@@ -126,14 +116,7 @@ export async function setHandoverItemStatusAction(
   itemId: string,
   status: Enums<'handover_item_status'>,
 ): Promise<void> {
-  const session = await requireAgency();
-  const supabase = await createClient();
-
-  const { data: item } = await supabase
-    .from('handover_items')
-    .select('project_id')
-    .eq('id', itemId)
-    .maybeSingle();
+  const session = await requireAgencyUser();
 
   const { error } = await supabase
     .from('handover_items')
@@ -145,8 +128,6 @@ export async function setHandoverItemStatusAction(
     .eq('id', itemId);
 
   if (error) throw new Error(error.message);
-
-  if (item) revalidatePath(`/projects/${item.project_id}/handover`);
 }
 
 export async function addHandoverItemAction(
@@ -155,14 +136,12 @@ export async function addHandoverItemAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  await requireAgency();
+  await requireAgencyUser();
 
   const parsed = handoverItemSchema.safeParse(formObject(formData));
   if (!parsed.success) {
     return errorState('Check the details below.', zodErrors(parsed.error));
   }
-
-  const supabase = await createClient();
 
   const { count } = await supabase
     .from('handover_items')
@@ -178,24 +157,13 @@ export async function addHandoverItemAction(
   });
 
   if (error) return errorState(`Could not add the item: ${error.message}`);
-
-  revalidatePath(`/projects/${projectId}/handover`);
   return successState('Item added.');
 }
 
 export async function deleteHandoverItemAction(itemId: string): Promise<void> {
-  await requireAgency();
-  const supabase = await createClient();
-
-  const { data: item } = await supabase
-    .from('handover_items')
-    .select('project_id')
-    .eq('id', itemId)
-    .maybeSingle();
+  await requireAgencyUser();
 
   await supabase.from('handover_items').delete().eq('id', itemId);
-
-  if (item) revalidatePath(`/projects/${item.project_id}/handover`);
 }
 
 export async function addHandoverDocumentAction(
@@ -204,7 +172,7 @@ export async function addHandoverDocumentAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const session = await requireAgency();
+  const session = await requireAgencyUser();
 
   const parsed = handoverDocumentSchema.safeParse(formObject(formData));
   if (!parsed.success) {
@@ -212,7 +180,6 @@ export async function addHandoverDocumentAction(
   }
 
   const input = parsed.data;
-  const supabase = await createClient();
 
   const file = formData.get('file');
   let fileId: string | null = null;
@@ -232,7 +199,6 @@ export async function addHandoverDocumentAction(
       uploadData.set('description', input.title);
       uploadData.append('files', file);
 
-      const { uploadFilesAction } = await import('./files');
       const result = await uploadFilesAction({ status: 'idle' }, uploadData);
 
       if (result.status === 'error') return result;
@@ -275,24 +241,13 @@ export async function addHandoverDocumentAction(
   });
 
   if (error) return errorState(`Could not add the document: ${error.message}`);
-
-  revalidatePath(`/projects/${projectId}/handover`);
   return successState('Document added.');
 }
 
 export async function deleteHandoverDocumentAction(documentId: string): Promise<void> {
-  await requireAgency();
-  const supabase = await createClient();
-
-  const { data: doc } = await supabase
-    .from('handover_documents')
-    .select('project_id')
-    .eq('id', documentId)
-    .maybeSingle();
+  await requireAgencyUser();
 
   await supabase.from('handover_documents').delete().eq('id', documentId);
-
-  if (doc) revalidatePath(`/projects/${doc.project_id}/handover`);
 }
 
 /** Marks the pack ready, or delivers it to the client. */
@@ -300,8 +255,7 @@ export async function setHandoverStatusAction(
   handoverId: string,
   status: Enums<'handover_status'>,
 ): Promise<void> {
-  const session = await requireAgency();
-  const supabase = await createClient();
+  const session = await requireAgencyUser();
 
   const { data: handover } = await supabase
     .from('handovers')
@@ -376,9 +330,6 @@ export async function setHandoverStatusAction(
       }),
     ]);
   }
-
-  revalidatePath(`/projects/${handover.project_id}/handover`);
-  revalidatePath('/portal', 'layout');
 }
 
 /**
@@ -391,7 +342,7 @@ export async function acceptHandoverAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const session = await requireUser();
+  const session = await currentUser();
 
   if (!canAcceptHandover(session.profile.role)) {
     return errorState(
@@ -405,7 +356,6 @@ export async function acceptHandoverAction(
   }
 
   const input = parsed.data;
-  const supabase = await createClient();
 
   const { data: project } = await supabase
     .from('projects')
@@ -414,9 +364,6 @@ export async function acceptHandoverAction(
     .maybeSingle();
 
   if (!project) return errorState('That project could not be found.');
-
-  const headerList = await headers();
-  const forwardedFor = headerList.get('x-forwarded-for');
 
   const statement =
     'I confirm that I have reviewed the website, that the changes we requested have been ' +
@@ -440,8 +387,10 @@ export async function acceptHandoverAction(
       training_not_applicable: input.trainingNotApplicable,
       maintenance_understood: input.maintenanceUnderstood,
       signature_name: input.signatureName,
-      ip_address: forwardedFor?.split(',')[0]?.trim() ?? null,
-      user_agent: headerList.get('user-agent'),
+      // The browser cannot know its own public address. The authenticated
+      // user id is what makes this record meaningful, and Postgres has that.
+      ip_address: null,
+      user_agent: navigator.userAgent,
     })
     .select('id')
     .single();
@@ -485,7 +434,5 @@ export async function acceptHandoverAction(
       url: `/projects/${projectId}/handover`,
     }),
   ]);
-
-  revalidatePath('/', 'layout');
   return successState('Thank you — your acceptance has been recorded.');
 }

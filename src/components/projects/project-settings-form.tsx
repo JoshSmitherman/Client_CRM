@@ -1,13 +1,10 @@
-'use client';
-
-import { useActionState } from 'react';
 
 import { Card, CardBody, CardFooter, CardHeader } from '@/components/ui/card';
 import { Field, Input, Select, Textarea } from '@/components/ui/field';
 import { FormMessage, SubmitButton } from '@/components/ui/form-status';
 import { updateProjectSettingsAction } from '@/lib/actions/projects';
-import { idleState } from '@/lib/actions/types';
 import { PROJECT_HEALTH_LABELS, PROJECT_TYPE_LABELS, toOptions } from '@/lib/constants';
+import { useFormAction } from '@/lib/data/use-form-action';
 import type { ProjectDetail } from '@/lib/queries/projects';
 
 export function ProjectSettingsForm({
@@ -21,7 +18,7 @@ export function ProjectSettingsForm({
   internalNote: string;
 }) {
   const action = updateProjectSettingsAction.bind(null, project.id);
-  const [state, formAction] = useActionState(action, idleState);
+  const [state, formAction] = useFormAction(action);
   const e = state.errors ?? {};
 
   return (

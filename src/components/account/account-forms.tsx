@@ -1,17 +1,14 @@
-'use client';
-
-import { useActionState } from 'react';
 
 import { Card, CardBody, CardFooter, CardHeader } from '@/components/ui/card';
 import { Field, Input } from '@/components/ui/field';
 import { FormMessage, SubmitButton } from '@/components/ui/form-status';
 import { PasswordRules } from '@/components/ui/password-rules';
 import { changePasswordAction, updateProfileAction } from '@/lib/actions/account';
-import { idleState } from '@/lib/actions/types';
-import type { Profile } from '@/lib/auth';
+import { useFormAction } from '@/lib/data/use-form-action';
+import type { Profile } from '@/lib/session';
 
 export function ProfileForm({ profile }: { profile: Profile }) {
-  const [state, action] = useActionState(updateProfileAction, idleState);
+  const [state, action] = useFormAction(updateProfileAction);
   const e = state.errors ?? {};
 
   return (
@@ -66,7 +63,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
 }
 
 export function PasswordForm() {
-  const [state, action] = useActionState(changePasswordAction, idleState);
+  const [state, action] = useFormAction(changePasswordAction);
   const e = state.errors ?? {};
 
   return (

@@ -1,7 +1,5 @@
-import 'server-only';
-
-import { createClient } from '@/lib/supabase/server';
 import { OPEN_CHANGE_STATUSES } from '@/lib/constants';
+import { supabase } from '@/lib/supabase/client';
 import type { Enums } from '@/lib/supabase/database.types';
 
 export interface ChangeRequestFilters {
@@ -22,7 +20,6 @@ const LIST_SELECT = `
 `;
 
 export async function getChangeRequests(filters: ChangeRequestFilters = {}, limit = 100) {
-  const supabase = await createClient();
 
   let query = supabase
     .from('change_requests')
@@ -50,7 +47,6 @@ export async function getChangeRequests(filters: ChangeRequestFilters = {}, limi
 }
 
 export async function getChangeRequest(requestId: string) {
-  const supabase = await createClient();
 
   const { data, error } = await supabase
     .from('change_requests')
@@ -71,7 +67,6 @@ export async function getChangeRequest(requestId: string) {
 
 /** Every quote round, newest first, so the whole negotiation is visible. */
 export async function getChangeRequestQuotes(requestId: string) {
-  const supabase = await createClient();
 
   const { data } = await supabase
     .from('change_request_approvals')
@@ -88,7 +83,6 @@ export async function getChangeRequestQuotes(requestId: string) {
 
 /** The permanent per-request timeline, drawn from activity_logs. */
 export async function getChangeRequestTimeline(requestId: string) {
-  const supabase = await createClient();
 
   const { data } = await supabase
     .from('activity_logs')
@@ -101,7 +95,6 @@ export async function getChangeRequestTimeline(requestId: string) {
 }
 
 export async function getChangeRequestAttachments(requestId: string) {
-  const supabase = await createClient();
 
   const { data } = await supabase
     .from('files')

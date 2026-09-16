@@ -1,14 +1,10 @@
-'use server';
-
-import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
 
 import { recordActivity } from '@/lib/activity';
 import { AuditAction, recordAudit } from '@/lib/audit';
-import { requireAgency } from '@/lib/auth';
-import { ONBOARDING_SECTIONS } from '@/lib/onboarding-template';
 import { setInternalNote } from '@/lib/internal-notes';
-import { createClient } from '@/lib/supabase/server';
+import { ONBOARDING_SECTIONS } from '@/lib/onboarding-template';
+import { requireAgencyUser } from '@/lib/session';
+import { supabase } from '@/lib/supabase/client';
 import { formObject } from '@/lib/validation/common';
 import { projectSchema, projectSettingsSchema } from '@/lib/validation/projects';
 import { errorState, successState, zodErrors, type ActionState } from './types';
@@ -17,7 +13,7 @@ export async function createProjectAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const session = await requireAgency();
+  const session = await requireAgencyUser();
 
   const parsed = projectSchema.safeParse(formObject(formData));
   if (!parsed.success) {
@@ -25,7 +21,6 @@ export async function createProjectAction(
   }
 
   const input = parsed.data;
-  const supabase = await createClient();
 
   // Default to the first lifecycle stage if none was chosen.
   let stageId = input.stageId ?? null;
@@ -113,10 +108,7 @@ export async function createProjectAction(
       actorName: session.profile.full_name,
     }),
   ]);
-
-  revalidatePath('/projects');
-  revalidatePath('/dashboard');
-  redirect(`/projects/${project.id}`);
+  return successState(undefined, `/projects/${project.id}`);
 }
 
 export async function updateProjectSettingsAction(
@@ -124,7 +116,7 @@ export async function updateProjectSettingsAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const session = await requireAgency();
+  const session = await requireAgencyUser();
 
   const parsed = projectSettingsSchema.safeParse(formObject(formData));
   if (!parsed.success) {
@@ -132,7 +124,6 @@ export async function updateProjectSettingsAction(
   }
 
   const input = parsed.data;
-  const supabase = await createClient();
 
   const { data: before } = await supabase
     .from('projects')
@@ -206,8 +197,6 @@ export async function updateProjectSettingsAction(
       newValue: { name: input.name, health: input.health },
     });
   }
-
-  revalidatePath(`/projects/${projectId}`, 'layout');
   return successState('Project settings saved.');
 }
 
@@ -216,8 +205,7 @@ export async function setProjectStageAction(
   projectId: string,
   stageId: string,
 ): Promise<void> {
-  const session = await requireAgency();
-  const supabase = await createClient();
+  const session = await requireAgencyUser();
 
   const [{ data: before }, { data: stage }] = await Promise.all([
     supabase
@@ -259,23 +247,19 @@ export async function setProjectStageAction(
       actorName: session.profile.full_name,
     }),
   ]);
-
-  revalidatePath(`/projects/${projectId}`, 'layout');
 }
 
 export async function addProjectMemberAction(
   projectId: string,
   formData: FormData,
 ): Promise<void> {
-  await requireAgency();
+  await requireAgencyUser();
 
   const userId = String(formData.get('userId') ?? '');
   const projectRole = String(formData.get('projectRole') ?? 'contributor');
   const canEdit = formData.get('canEdit') === 'on';
 
   if (!userId) return;
-
-  const supabase = await createClient();
 
   const { error } = await supabase
     .from('project_members')
@@ -292,16 +276,13 @@ export async function addProjectMemberAction(
     entityId: projectId,
     newValue: { added_member: userId, can_edit: canEdit, project_role: projectRole },
   });
-
-  revalidatePath(`/projects/${projectId}/settings`);
 }
 
 export async function removeProjectMemberAction(
   projectId: string,
   memberId: string,
 ): Promise<void> {
-  await requireAgency();
-  const supabase = await createClient();
+  await requireAgencyUser();
 
   const { data: member } = await supabase
     .from('project_members')
@@ -317,6 +298,4 @@ export async function removeProjectMemberAction(
     entityId: projectId,
     previousValue: { removed_member: member?.user_id ?? null },
   });
-
-  revalidatePath(`/projects/${projectId}/settings`);
 }

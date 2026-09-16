@@ -1,14 +1,11 @@
-'use client';
-
-import { useActionState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Card, CardBody, CardFooter, CardHeader } from '@/components/ui/card';
 import { Field, Input, Select, Textarea } from '@/components/ui/field';
 import { FormMessage, SubmitButton } from '@/components/ui/form-status';
 import { offerQuoteAction } from '@/lib/actions/change-requests';
-import { idleState } from '@/lib/actions/types';
 import { BILLING_TREATMENT_LABELS, QUOTE_DECISION_LABELS, toOptions } from '@/lib/constants';
+import { useFormAction } from '@/lib/data/use-form-action';
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/format';
 
 export interface QuoteRow {
@@ -29,7 +26,7 @@ export interface QuoteRow {
 /** Agency side: issue a quotation and review the history of previous offers. */
 export function QuotePanel({ requestId, quotes }: { requestId: string; quotes: QuoteRow[] }) {
   const action = offerQuoteAction.bind(null, requestId);
-  const [state, formAction] = useActionState(action, idleState);
+  const [state, formAction] = useFormAction(action);
   const e = state.errors ?? {};
 
   const pending = quotes.find((q) => q.decision === 'pending');

@@ -1,6 +1,4 @@
-'use client';
-
-import { useActionState, useState, useTransition } from 'react';
+import { useState, useTransition } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -8,7 +6,8 @@ import { Card, CardHeader } from '@/components/ui/card';
 import { Field, Input } from '@/components/ui/field';
 import { FormMessage, SubmitButton } from '@/components/ui/form-status';
 import { setStageActiveAction, updateStageAction } from '@/lib/actions/settings';
-import { idleState } from '@/lib/actions/types';
+import { revalidate } from '@/lib/data/revalidate';
+import { useFormAction } from '@/lib/data/use-form-action';
 
 export interface StageRow {
   id: string;
@@ -42,7 +41,7 @@ export function StageList({ stages }: { stages: StageRow[] }) {
 
 function StageItem({ stage }: { stage: StageRow }) {
   const action = updateStageAction.bind(null, stage.id);
-  const [state, formAction] = useActionState(action, idleState);
+  const [state, formAction] = useFormAction(action);
   const [editing, setEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
 
@@ -104,6 +103,7 @@ function StageItem({ stage }: { stage: StageRow }) {
         onClick={() =>
           startTransition(async () => {
             await setStageActiveAction(stage.id, !stage.is_active);
+            revalidate();
           })
         }
       >

@@ -1,7 +1,5 @@
-import 'server-only';
-
-import { createClient } from '@/lib/supabase/server';
 import { OPEN_SUPPORT_STATUSES } from '@/lib/constants';
+import { supabase } from '@/lib/supabase/client';
 import type { Enums } from '@/lib/supabase/database.types';
 
 const LIST_SELECT = `
@@ -24,7 +22,6 @@ export async function getSupportRequests(
   } = {},
   limit = 100,
 ) {
-  const supabase = await createClient();
 
   let query = supabase
     .from('support_requests')
@@ -55,7 +52,6 @@ export async function getSupportRequests(
 }
 
 export async function getSupportRequest(requestId: string) {
-  const supabase = await createClient();
 
   const { data, error } = await supabase
     .from('support_requests')

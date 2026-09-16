@@ -1,0 +1,94 @@
+name: Deploy to GitHub Pages
+
+# Builds the application and publishes it to GitHub Pages.
+#
+# Needs two repository secrets (Settings -> Secrets and variables -> Actions):
+#   VITE_SUPABASE_URL        Supabase -> Project Settings -> API -> Project URL
+#   VITE_SUPABASE_ANON_KEY   Supabase -> Project Settings -> API -> anon public
+#
+# Both are compiled into the JavaScript that anyone can read. That is how
+# Supabase is designed to work: the anon key grants nothing on its own, and
+# every read and write is checked against Row Level Security in Postgres using
+# the signed-in person's token. The service role key is never used here.
+#
+# Turn Pages on first: Settings -> Pages -> Build and deployment -> Source ->
+# "GitHub Actions". See docs/GITHUB-SETUP.md.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Allows the workflow to publish to Pages.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time; do not cancel a run that is already publishing.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the secrets are present
+        run: |
+          missing=0
+          if [ -z "${{ secrets.VITE_SUPABASE_URL }}" ]; then
+            echo "::error::VITE_SUPABASE_URL is not set."; missing=1
+          fi
+          if [ -z "${{ secrets.VITE_SUPABASE_ANON_KEY }}" ]; then
+            echo "::error::VITE_SUPABASE_ANON_KEY is not set."; missing=1
+          fi
+          if [ "$missing" = "1" ]; then
+            echo "Add them under Settings -> Secrets and variables -> Actions."
+            echo "See docs/GITHUB-SETUP.md."
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Configure Pages
+        id: pages
+        uses: actions/configure-pages@v5
+
+      # A project site is served from /<repo>/, so every asset and route has to
+      # be built with that prefix. base_path comes back empty for a user or
+      # organisation site served from the domain root.
+      - name: Build
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          BASE_PATH: ${{ steps.pages.outputs.base_path && format('{0}/', steps.pages.outputs.base_path) || '/' }}
+
+      # Pages serves files literally, so a request for /clients would 404.
+      # public/404.html records the path and hands it back to the router.
+      - name: Check the single-page fallback shipped
+        run: test -f dist/404.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    name: Publish
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,7 +1,5 @@
-'use client';
-
 import { ChevronDown, LogOut, User } from 'lucide-react';
-import Link from 'next/link';
+import { Link } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 
 import { Avatar } from '@/components/ui/avatar';
@@ -67,7 +65,7 @@ export function UserMenu({ user }: { user: ShellUser }) {
           </div>
 
           <Link
-            href={user.accountHref}
+            to={user.accountHref}
             role="menuitem"
             className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-[var(--surface-hover)]"
           >

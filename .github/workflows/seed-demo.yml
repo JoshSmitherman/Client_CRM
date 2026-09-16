@@ -4,7 +4,7 @@ name: Seed demo data
 # Run this once after the schema is in place.
 #
 # Needs two secrets:
-#   NEXT_PUBLIC_SUPABASE_URL     Project Settings -> API -> Project URL
+#   VITE_SUPABASE_URL     Project Settings -> API -> Project URL
 #   SUPABASE_SERVICE_ROLE_KEY    Project Settings -> API -> service_role secret
 #
 # The service role key is only ever used here and by the server; it never
@@ -41,8 +41,8 @@ jobs:
       - name: Check the secrets are present
         run: |
           missing=0
-          if [ -z "${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" ]; then
-            echo "::error::NEXT_PUBLIC_SUPABASE_URL is not set."; missing=1
+          if [ -z "${{ secrets.VITE_SUPABASE_URL }}" ]; then
+            echo "::error::VITE_SUPABASE_URL is not set."; missing=1
           fi
           if [ -z "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" ]; then
             echo "::error::SUPABASE_SERVICE_ROLE_KEY is not set."; missing=1
@@ -62,7 +62,7 @@ jobs:
 
       - name: Seed
         env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           DEMO_PASSWORD: ${{ inputs.demo_password }}
         run: |

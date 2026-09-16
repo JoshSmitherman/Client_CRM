@@ -1,12 +1,9 @@
-'use client';
-
-import { useActionState } from 'react';
 
 import { Card, CardBody, CardFooter, CardHeader } from '@/components/ui/card';
 import { Field, Input, Select, Textarea } from '@/components/ui/field';
 import { FormMessage, SubmitButton } from '@/components/ui/form-status';
 import { triageChangeRequestAction } from '@/lib/actions/change-requests';
-import { idleState } from '@/lib/actions/types';
+import { useFormAction } from '@/lib/data/use-form-action';
 import {
   BILLING_TREATMENT_LABELS,
   CHANGE_STATUS_LABELS,
@@ -26,7 +23,7 @@ export function TriagePanel({
   internalNote: string;
 }) {
   const action = triageChangeRequestAction.bind(null, request.id);
-  const [state, formAction] = useActionState(action, idleState);
+  const [state, formAction] = useFormAction(action);
   const e = state.errors ?? {};
 
   return (

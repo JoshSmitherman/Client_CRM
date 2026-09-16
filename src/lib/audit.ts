@@ -1,8 +1,5 @@
-import 'server-only';
 
-import { headers } from 'next/headers';
-
-import { createClient } from '@/lib/supabase/server';
+import { supabase } from '@/lib/supabase/client';
 import type { Json } from '@/lib/supabase/database.types';
 
 /**
@@ -21,20 +18,16 @@ export async function recordAudit(params: {
   newValue?: Json;
 }): Promise<void> {
   try {
-    const supabase = await createClient();
-    const headerList = await headers();
-
-    const forwardedFor = headerList.get('x-forwarded-for');
-    const ip = forwardedFor?.split(',')[0]?.trim() ?? null;
-
     const { error } = await supabase.rpc('record_audit', {
       p_action: params.action,
       p_entity_type: params.entityType,
       p_entity_id: params.entityId,
       p_previous_value: params.previousValue ?? null,
       p_new_value: params.newValue ?? null,
-      p_ip_address: ip,
-      p_user_agent: headerList.get('user-agent'),
+      // The browser cannot know its own public address; Postgres records the
+      // authenticated user, which is the part that matters.
+      p_ip_address: null,
+      p_user_agent: navigator.userAgent,
     });
 
     if (error) console.error('[audit] failed to record', params.action, error.message);

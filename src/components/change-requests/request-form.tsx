@@ -1,14 +1,11 @@
-'use client';
-
-import { useActionState } from 'react';
 
 import { Alert } from '@/components/ui/alert';
 import { Card, CardBody, CardFooter, CardHeader } from '@/components/ui/card';
 import { Field, Input, Select, Textarea } from '@/components/ui/field';
 import { FormMessage, SubmitButton } from '@/components/ui/form-status';
 import { createChangeRequestAction } from '@/lib/actions/change-requests';
-import { idleState } from '@/lib/actions/types';
 import { CHANGE_CATEGORY_LABELS, PRIORITY_LABELS, toOptions } from '@/lib/constants';
+import { useFormAction } from '@/lib/data/use-form-action';
 import { ACCEPT_ATTRIBUTE } from '@/lib/files';
 
 /**
@@ -25,7 +22,7 @@ export function ChangeRequestForm({
   defaultProjectId?: string;
   coveredByPlan: boolean;
 }) {
-  const [state, action] = useActionState(createChangeRequestAction, idleState);
+  const [state, action] = useFormAction(createChangeRequestAction);
   const e = state.errors ?? {};
 
   return (

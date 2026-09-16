@@ -1,5 +1,3 @@
-'use client';
-
 import { useFormStatus } from 'react-dom';
 
 import { Alert } from '@/components/ui/alert';

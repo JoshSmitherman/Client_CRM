@@ -1,7 +1,5 @@
-'use client';
-
 import { Search } from 'lucide-react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useEffect, useState, useTransition } from 'react';
 
 import { cn } from '@/lib/utils';
@@ -21,9 +19,9 @@ export function SearchField({
   paramName?: string;
   className?: string;
 }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const params = useSearchParams();
+  const navigate = useNavigate();
+  const pathname = useLocation().pathname;
+  const [params] = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const [value, setValue] = useState(params.get(paramName) ?? '');
 
@@ -36,12 +34,12 @@ export function SearchField({
       if (value) next.set(paramName, value);
       else next.delete(paramName);
       startTransition(() => {
-        router.replace(`${pathname}?${next.toString()}`, { scroll: false });
+        navigate(`${pathname}?${next.toString()}`, { replace: true });
       });
     }, 350);
 
     return () => clearTimeout(timer);
-  }, [value, params, paramName, pathname, router]);
+  }, [value, params, paramName, pathname, navigate]);
 
   return (
     <div className={cn('relative', isPending && 'opacity-70', className)}>

@@ -1,22 +1,19 @@
-'use server';
-
-import { revalidatePath } from 'next/cache';
 
 import { recordActivity } from '@/lib/activity';
-import { requireUser } from '@/lib/auth';
 import { notify } from '@/lib/notifications';
 import { isAgency } from '@/lib/permissions';
-import { createClient } from '@/lib/supabase/server';
+import { currentUser } from '@/lib/session';
+import { supabase } from '@/lib/supabase/client';
+import type { Enums } from '@/lib/supabase/database.types';
 import { formObject } from '@/lib/validation/common';
 import { taskSchema } from '@/lib/validation/tasks';
-import type { Enums } from '@/lib/supabase/database.types';
 import { errorState, successState, zodErrors, type ActionState } from './types';
 
 export async function createTaskAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const session = await requireUser();
+  const session = await currentUser();
   if (!isAgency(session.profile.role)) {
     return errorState('Only agency users can create tasks.');
   }
@@ -27,7 +24,6 @@ export async function createTaskAction(
   }
 
   const input = parsed.data;
-  const supabase = await createClient();
 
   const { data: task, error } = await supabase
     .from('tasks')
@@ -77,9 +73,6 @@ export async function createTaskAction(
     visibility: input.responsibility === 'client' ? 'client' : 'internal',
     actorName: session.profile.full_name,
   });
-
-  revalidatePath(`/projects/${input.projectId}/tasks`);
-  revalidatePath('/tasks');
   return successState('Task created.');
 }
 
@@ -88,7 +81,7 @@ export async function updateTaskAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const session = await requireUser();
+  const session = await currentUser();
   if (!isAgency(session.profile.role)) {
     return errorState('Only agency users can edit tasks.');
   }
@@ -99,7 +92,6 @@ export async function updateTaskAction(
   }
 
   const input = parsed.data;
-  const supabase = await createClient();
 
   const { error } = await supabase
     .from('tasks')
@@ -118,9 +110,6 @@ export async function updateTaskAction(
     .eq('id', taskId);
 
   if (error) return errorState(`Could not save the task: ${error.message}`);
-
-  revalidatePath(`/projects/${input.projectId}/tasks`);
-  revalidatePath('/tasks');
   return successState('Task saved.');
 }
 
@@ -135,8 +124,7 @@ export async function setTaskStatusAction(
   taskId: string,
   status: Enums<'task_status'>,
 ): Promise<void> {
-  const session = await requireUser();
-  const supabase = await createClient();
+  const session = await currentUser();
 
   const { data: before } = await supabase
     .from('tasks')
@@ -160,29 +148,14 @@ export async function setTaskStatusAction(
       actorName: session.profile.full_name,
     });
   }
-
-  revalidatePath(`/projects/${before.project_id}/tasks`);
-  revalidatePath('/tasks');
-  revalidatePath('/portal', 'layout');
 }
 
 export async function deleteTaskAction(taskId: string): Promise<void> {
-  const session = await requireUser();
+  const session = await currentUser();
   if (!isAgency(session.profile.role)) throw new Error('Only agency users can delete tasks.');
-
-  const supabase = await createClient();
-
-  const { data: task } = await supabase
-    .from('tasks')
-    .select('project_id')
-    .eq('id', taskId)
-    .maybeSingle();
 
   await supabase
     .from('tasks')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', taskId);
-
-  if (task) revalidatePath(`/projects/${task.project_id}/tasks`);
-  revalidatePath('/tasks');
 }

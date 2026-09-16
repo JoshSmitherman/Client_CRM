@@ -1,7 +1,5 @@
-'use client';
-
 import { Search, X } from 'lucide-react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useEffect, useState, useTransition } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -30,9 +28,9 @@ const COMPLETION_BANDS = [
  * transition, so the page does not flicker while the server re-renders.
  */
 export function FilterBar({ options }: { options: FilterOptions }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const params = useSearchParams();
+  const navigate = useNavigate();
+  const pathname = useLocation().pathname;
+  const [params] = useSearchParams();
   const [isPending, startTransition] = useTransition();
 
   const [search, setSearch] = useState(params.get('q') ?? '');
@@ -47,12 +45,12 @@ export function FilterBar({ options }: { options: FilterOptions }) {
       if (search) next.set('q', search);
       else next.delete('q');
       startTransition(() => {
-        router.replace(`${pathname}?${next.toString()}`, { scroll: false });
+        navigate(`${pathname}?${next.toString()}`, { replace: true });
       });
     }, 350);
 
     return () => clearTimeout(timer);
-  }, [search, params, pathname, router]);
+  }, [search, params, pathname, navigate]);
 
   function update(key: string, value: string) {
     const next = new URLSearchParams(params.toString());
@@ -60,7 +58,7 @@ export function FilterBar({ options }: { options: FilterOptions }) {
     else next.delete(key);
 
     startTransition(() => {
-      router.replace(`${pathname}?${next.toString()}`, { scroll: false });
+      navigate(`${pathname}?${next.toString()}`, { replace: true });
     });
   }
 
@@ -92,7 +90,7 @@ export function FilterBar({ options }: { options: FilterOptions }) {
             size="sm"
             onClick={() => {
               setSearch('');
-              startTransition(() => router.replace(pathname, { scroll: false }));
+              startTransition(() => navigate(pathname, { replace: true }));
             }}
           >
             <X className="h-3.5 w-3.5" aria-hidden="true" />

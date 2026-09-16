@@ -1,11 +1,10 @@
-'use client';
-
 import { Check, X } from 'lucide-react';
 import { useState, useTransition } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardBody, CardHeader } from '@/components/ui/card';
 import { reviewPageAction } from '@/lib/actions/content';
+import { revalidate } from '@/lib/data/revalidate';
 import type { Enums } from '@/lib/supabase/database.types';
 
 export function PageReview({
@@ -25,6 +24,7 @@ export function PageReview({
     startTransition(async () => {
       try {
         await reviewPageAction(pageId, decision, reason);
+        revalidate();
         setShowFeedback(false);
         setFeedback('');
       } catch (e) {

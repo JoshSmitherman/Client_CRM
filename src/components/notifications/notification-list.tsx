@@ -1,7 +1,5 @@
-'use client';
-
 import { Bell, Check, Trash2 } from 'lucide-react';
-import Link from 'next/link';
+import { Link } from 'react-router-dom';
 import { useTransition } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -11,6 +9,7 @@ import {
   markAllNotificationsReadAction,
   markNotificationReadAction,
 } from '@/lib/actions/notifications';
+import { revalidate } from '@/lib/data/revalidate';
 import { formatRelative } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
@@ -46,7 +45,7 @@ export function NotificationList({ notifications }: { notifications: Notificatio
             size="sm"
             variant="ghost"
             disabled={isPending}
-            onClick={() => startTransition(async () => { await markAllNotificationsReadAction(); })}
+            onClick={() => startTransition(async () => { await markAllNotificationsReadAction(); revalidate(); })}
           >
             <Check className="h-3.5 w-3.5" aria-hidden="true" />
             Mark all {unread} as read
@@ -75,10 +74,11 @@ export function NotificationList({ notifications }: { notifications: Notificatio
             <div className="min-w-0 flex-1">
               {notification.url ? (
                 <Link
-                  href={notification.url}
+                  to={notification.url}
                   onClick={() =>
                     startTransition(async () => {
                       await markNotificationReadAction(notification.id);
+                      revalidate();
                     })
                   }
                   className="text-[14px] font-medium hover:text-[var(--accent-text)] hover:underline"
@@ -107,6 +107,7 @@ export function NotificationList({ notifications }: { notifications: Notificatio
                   onClick={() =>
                     startTransition(async () => {
                       await markNotificationReadAction(notification.id);
+                      revalidate();
                     })
                   }
                   aria-label="Mark as read"
@@ -122,6 +123,7 @@ export function NotificationList({ notifications }: { notifications: Notificatio
                 onClick={() =>
                   startTransition(async () => {
                     await deleteNotificationAction(notification.id);
+                    revalidate();
                   })
                 }
                 aria-label="Remove notification"

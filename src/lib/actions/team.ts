@@ -1,14 +1,10 @@
-'use server';
-
-import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
 import { AuditAction, recordAudit } from '@/lib/audit';
-import { requireUser } from '@/lib/auth';
 import { canInviteColleagues, isAgencyAdmin } from '@/lib/permissions';
-import { createAdminClient } from '@/lib/supabase/admin';
-import { siteUrl } from '@/lib/supabase/env';
-import { createClient } from '@/lib/supabase/server';
+import { currentUser } from '@/lib/session';
+
+import { siteUrl, supabase } from '@/lib/supabase/client';
 import { email, formObject, optionalText, optionalUuid } from '@/lib/validation/common';
 import { errorState, successState, zodErrors, type ActionState } from './types';
 
@@ -42,7 +38,7 @@ export async function sendInvitationAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const session = await requireUser();
+  const session = await currentUser();
 
   if (!canInviteColleagues(session.profile.role)) {
     return errorState('You do not have permission to invite people.');
@@ -61,27 +57,13 @@ export async function sendInvitationAction(
   if (!isAgencyAdmin(session.profile.role) && !isClientUser) {
     return errorState('You can only invite colleagues to your own organisation.');
   }
-
-  const supabase = await createClient();
-  let organisationId = session.profile.organisation_id;
-
-  if (isAgencyAdmin(session.profile.role)) {
-    if (isClientUser) {
-      if (!input.clientId) {
-        return errorState('Choose which client this person belongs to.', {
-          clientId: 'Required for a client account.',
-        });
-      }
-      const { data: client } = await supabase
-        .from('clients')
-        .select('organisation_id')
-        .eq('id', input.clientId)
-        .maybeSingle();
-
-      if (!client) return errorState('That client could not be found.');
-      organisationId = client.organisation_id;
-    }
-    // Agency invitations keep the inviter's own (agency) organisation.
+  // Which organisation the invitee joins is resolved by the Edge Function, as
+  // the caller, so it cannot be steered from here. This check exists only to
+  // fail fast with a field-level message instead of a round trip.
+  if (isAgencyAdmin(session.profile.role) && isClientUser && !input.clientId) {
+    return errorState('Choose which client this person belongs to.', {
+      clientId: 'Required for a client account.',
+    });
   }
 
   const { data: existing } = await supabase
@@ -96,74 +78,55 @@ export async function sendInvitationAction(
     });
   }
 
-  const { data: invitation, error } = await supabase
-    .from('invitations')
-    .insert({
+  // Sending an invitation needs the service role key, which must never be in
+  // a browser bundle. The Edge Function holds it, re-checks the caller's
+  // permission against the database, writes the invitation row and sends the
+  // email — rolling the row back itself if the send fails.
+  const { data: result, error: functionError } = await supabase.functions.invoke('invite-user', {
+    body: {
       email: input.email,
-      full_name: input.fullName ?? '',
+      fullName: input.fullName ?? '',
       role: input.role,
-      organisation_id: organisationId,
-      client_id: isClientUser ? (input.clientId ?? null) : null,
-      invited_by: session.userId,
+      clientId: isClientUser ? (input.clientId ?? null) : null,
       message: input.message ?? null,
-    })
-    .select('id, token')
-    .single();
-
-  if (error || !invitation) {
-    // The partial unique index means a live invitation already exists.
-    if (error?.code === '23505') {
-      return errorState('That address already has an invitation waiting.', {
-        email: 'An invitation is already outstanding for this address.',
-      });
-    }
-    return errorState(`Could not create the invitation: ${error?.message ?? 'unknown error'}`);
-  }
-
-  // Service role is needed to send the email; this is one of only two places
-  // it is used, and it never reaches the browser.
-  try {
-    const admin = createAdminClient();
-    const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(input.email, {
-      redirectTo: `${siteUrl()}/auth/callback?next=/invite/accept`,
-      data: { full_name: input.fullName ?? '' },
-    });
-
-    if (inviteError) {
-      // Roll the row back so a retry is not blocked by the unique index.
-      await supabase.from('invitations').delete().eq('id', invitation.id);
-      return errorState(
-        `Could not send the invitation email: ${inviteError.message}. ` +
-          'Check that the redirect URL is allowed in your Supabase auth settings.',
-      );
-    }
-  } catch (e) {
-    await supabase.from('invitations').delete().eq('id', invitation.id);
-    return errorState(
-      e instanceof Error
-        ? e.message
-        : 'Could not send the invitation. Is SUPABASE_SERVICE_ROLE_KEY set?',
-    );
-  }
-
-  await recordAudit({
-    action: AuditAction.InvitationSent,
-    entityType: 'invitation',
-    entityId: invitation.id,
-    newValue: { email: input.email, role: input.role, organisation_id: organisationId },
+      redirectTo: `${siteUrl()}/invite/accept`,
+    },
   });
 
-  revalidatePath('/', 'layout');
+  if (functionError) {
+    // The function returns a readable message in the body; surface that rather
+    // than "Edge Function returned a non-2xx status code".
+    let message = functionError.message;
+    try {
+      const body = await (functionError as { context?: Response }).context?.json();
+      if (body?.error) message = body.error;
+    } catch {
+      // Body was not JSON; the generic message will have to do.
+    }
+
+    if (/already has an account/i.test(message)) {
+      return errorState(message, { email: 'This address is already in use.' });
+    }
+    if (/invitation waiting/i.test(message)) {
+      return errorState(message, { email: 'An invitation is already outstanding.' });
+    }
+    return errorState(message);
+  }
+
+  if (!result?.ok) {
+    return errorState(result?.error ?? 'Could not send the invitation.');
+  }
+
+  // The Edge Function records the audit entry, as the caller, so the log names
+  // the right person rather than the service role.
   return successState(`Invitation sent to ${input.email}.`);
 }
 
 export async function revokeInvitationAction(invitationId: string): Promise<void> {
-  const session = await requireUser();
+  const session = await currentUser();
   if (!canInviteColleagues(session.profile.role)) {
     throw new Error('You do not have permission to revoke invitations.');
   }
-
-  const supabase = await createClient();
 
   const { data: invitation } = await supabase
     .from('invitations')
@@ -182,13 +145,11 @@ export async function revokeInvitationAction(invitationId: string): Promise<void
     entityId: invitationId,
     previousValue: { email: invitation?.email ?? null },
   });
-
-  revalidatePath('/', 'layout');
 }
 
 /** Deactivating keeps the person's history; it does not delete anything. */
 export async function setUserActiveAction(userId: string, isActive: boolean): Promise<void> {
-  const session = await requireUser();
+  const session = await currentUser();
   if (!isAgencyAdmin(session.profile.role)) {
     throw new Error('Only an administrator can change account access.');
   }
@@ -196,8 +157,6 @@ export async function setUserActiveAction(userId: string, isActive: boolean): Pr
   if (userId === session.userId) {
     throw new Error('You cannot deactivate your own account.');
   }
-
-  const supabase = await createClient();
 
   const { error } = await supabase
     .from('users')
@@ -212,12 +171,10 @@ export async function setUserActiveAction(userId: string, isActive: boolean): Pr
     entityId: userId,
     newValue: { is_active: isActive },
   });
-
-  revalidatePath('/', 'layout');
 }
 
 export async function setUserRoleAction(userId: string, role: string): Promise<void> {
-  const session = await requireUser();
+  const session = await currentUser();
   if (!isAgencyAdmin(session.profile.role)) {
     throw new Error('Only an administrator can change roles.');
   }
@@ -225,8 +182,6 @@ export async function setUserRoleAction(userId: string, role: string): Promise<v
   if (userId === session.userId) {
     throw new Error('You cannot change your own role.');
   }
-
-  const supabase = await createClient();
 
   const { data: before } = await supabase
     .from('users')
@@ -248,6 +203,4 @@ export async function setUserRoleAction(userId: string, role: string): Promise<v
     previousValue: { role: before?.role ?? null },
     newValue: { role },
   });
-
-  revalidatePath('/', 'layout');
 }

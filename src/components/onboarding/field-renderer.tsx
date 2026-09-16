@@ -1,5 +1,3 @@
-'use client';
-
 import { Checkbox, Field, Input, Select, Textarea } from '@/components/ui/field';
 import type { OnboardingField } from '@/lib/onboarding-template';
 

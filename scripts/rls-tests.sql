@@ -551,4 +551,33 @@ select pg_temp.assert(
   'client can see the handover once it is delivered');
 
 reset role;
+select set_config('request.jwt.claim.sub', '', false);
+
+-- --------------------------------------------------------------------------
+-- The public signup screen
+-- --------------------------------------------------------------------------
+-- staff_signup_hints() exists so a signed-out visitor can be told which email
+-- address to use. It is the only thing anon may call, and it must not become a
+-- way around the settings table it reads from.
+set role anon;
+
+select pg_temp.assert(
+  (select count(*) from public.staff_signup_hints()) = 1,
+  'anon can read the signup hints');
+
+-- An installation with an administrator is not a first-run installation.
+select pg_temp.assert(
+  (select not is_first_account from public.staff_signup_hints()),
+  'the hints report that this installation already has an administrator');
+
+-- Everything else about the settings stays out of reach.
+select pg_temp.assert(
+  (select count(*) from public.agency_settings) = 0,
+  'anon still cannot read agency_settings directly');
+
+select pg_temp.assert(
+  (select count(*) from public.users) = 0,
+  'anon still cannot read users');
+
+reset role;
 \echo 'ALL RLS ASSERTIONS PASSED'

@@ -1,14 +1,12 @@
-'use client';
-
 import { Paperclip, Upload, X } from 'lucide-react';
-import { useActionState, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Field, Input, Select } from '@/components/ui/field';
 import { FormMessage, SubmitButton } from '@/components/ui/form-status';
 import { uploadFilesAction } from '@/lib/actions/files';
-import { idleState } from '@/lib/actions/types';
 import { FILE_CATEGORY_LABELS, toOptions } from '@/lib/constants';
+import { useFormAction } from '@/lib/data/use-form-action';
 import { ACCEPT_ATTRIBUTE, validateFile } from '@/lib/files';
 import { formatFileSize } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -26,7 +24,7 @@ export function FileUploader({
   websitePageId?: string;
   compact?: boolean;
 }) {
-  const [state, action] = useActionState(uploadFilesAction, idleState);
+  const [state, action] = useFormAction(uploadFilesAction);
   const [selected, setSelected] = useState<File[]>([]);
   const [localErrors, setLocalErrors] = useState<string[]>([]);
   const [dragging, setDragging] = useState(false);
